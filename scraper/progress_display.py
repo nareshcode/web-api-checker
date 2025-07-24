@@ -54,8 +54,9 @@ class ProgressTracker:
         else:
             eta_str = "calculating..."
         
-        # Display progress
-        sys.stdout.write(f"\r{status_icon} [{self.current_check}/{self.total_checks}] {check_name}... {bar} {percent}% | ⏱️ {time_str} | ⏳ ETA: {eta_str}")
+        # Display progress with better formatting
+        progress_line = f"\r{status_icon} [{self.current_check}/{self.total_checks}] {check_name}... {bar} {percent}% | ⏱️ {time_str} | ⏳ ETA: {eta_str}"
+        sys.stdout.write(progress_line.ljust(120))  # Ensure consistent line length
         sys.stdout.flush()
         
         # Store check start time
@@ -98,7 +99,9 @@ class ProgressTracker:
         else:
             duration_str = f"{check_duration/60:.1f}m"
         
-        sys.stdout.write(f"\r{status_icon} [{self.current_check}/{self.total_checks}] {check_name}... {bar} {percent}% | ⏱️ {time_str} | ⏱️ Check: {duration_str}")
+        # Display completed check with better formatting
+        complete_line = f"\r{status_icon} [{self.current_check}/{self.total_checks}] {check_name}... {bar} {percent}% | ⏱️ {time_str} | ⏱️ Check: {duration_str}"
+        sys.stdout.write(complete_line.ljust(120))  # Ensure consistent line length
         sys.stdout.flush()
         
         # Move to next line for next check

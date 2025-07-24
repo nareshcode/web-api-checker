@@ -61,6 +61,42 @@ class FalsePositiveValidator:
             r'sequence', r'sequential', r'sequel', r'sequelize',
             r'sequenceid', r'sequencenumber', r'sequencelog'
         ]
+        
+        # Banking-specific false positive patterns
+        self.banking_false_positive_patterns = {
+            'double_spending': [
+                r'idempotency', r'duplicate', r'replay', r'transaction',
+                r'amount', r'account', r'payment', r'transfer'
+            ],
+            'race_conditions': [
+                r'concurrent', r'race', r'condition', r'loan',
+                r'amount', r'user', r'account', r'request'
+            ],
+            'bola_attacks': [
+                r'userid', r'accountid', r'deviceid', r'sessionid',
+                r'authorization', r'access', r'permission', r'role'
+            ],
+            'kyc_bypass': [
+                r'kyc', r'verification', r'document', r'identity',
+                r'status', r'level', r'complete', r'pending'
+            ],
+            'loan_abuse': [
+                r'loan', r'amount', r'income', r'credit', r'score',
+                r'employment', r'criteria', r'approval', r'application'
+            ],
+            'discount_abuse': [
+                r'discount', r'code', r'promo', r'offer', r'cashback',
+                r'reward', r'benefit', r'user', r'application'
+            ],
+            'webhook_abuse': [
+                r'webhook', r'callback', r'url', r'event', r'notification',
+                r'payment', r'success', r'complete', r'trigger'
+            ],
+            'micro_transactions': [
+                r'micro', r'transaction', r'small', r'amount', r'rapid',
+                r'request', r'frequency', r'limit', r'threshold'
+            ]
+        }
 
     def validate_response(self, 
                          response: requests.Response, 
@@ -211,6 +247,8 @@ class FalsePositiveValidator:
             return self._validate_command_injection(response, payload)
         elif attack_type == "xss":
             return self._validate_xss(response, payload)
+        elif attack_type in self.banking_false_positive_patterns:
+            return self._validate_banking_attack(response, payload, attack_type)
         
         return ValidationResult(
             is_false_positive=False,
@@ -305,6 +343,80 @@ class FalsePositiveValidator:
             confidence=0.6,
             reason="No XSS false positive patterns detected",
             evidence={}
+        )
+    
+    def _validate_banking_attack(self, response: requests.Response, payload: str, attack_type: str) -> ValidationResult:
+        """Validate banking-specific attack false positives"""
+        text_lower = response.text.lower()
+        
+        # Get patterns for this specific banking attack type
+        patterns = self.banking_false_positive_patterns.get(attack_type, [])
+        
+        # Check for banking false positive patterns
+        for pattern in patterns:
+            if re.search(pattern, text_lower, re.IGNORECASE):
+                return ValidationResult(
+                    is_false_positive=True,
+                    confidence=0.9,
+                    reason=f"Banking {attack_type} false positive pattern detected: {pattern}",
+                    evidence={'pattern': pattern, 'attack_type': attack_type}
+                )
+        
+        # Check if response is a legitimate API response (not vulnerable)
+        if response.status_code in [200, 201, 400, 401, 403, 404, 500]:
+            # Check if it's a standard API response format
+            if any(indicator in text_lower for indicator in self.legitimate_indicators):
+                return ValidationResult(
+                    is_false_positive=True,
+                    confidence=0.85,
+                    reason=f"Banking {attack_type} - legitimate API response detected",
+                    evidence={'status_code': response.status_code, 'context': 'api_response'}
+                )
+        
+        # Check if payload appears in legitimate JSON context
+        if payload in response.text:
+            # Check if it's in a JSON structure (likely false positive)
+            if '"' in response.text and ':' in response.text:
+                return ValidationResult(
+                    is_false_positive=True,
+                    confidence=0.8,
+                    reason=f"Banking {attack_type} payload reflected in JSON context",
+                    evidence={'context': 'json_reflection'}
+                )
+        
+        # Special handling for test services like httpbin.org
+        if 'httpbin.org' in response.url or 'test' in response.url.lower():
+            # Test services often echo back the request, which can appear vulnerable
+            if payload in response.text:
+                return ValidationResult(
+                    is_false_positive=True,
+                    confidence=0.95,
+                    reason=f"Banking {attack_type} - test service echo detected",
+                    evidence={'service': 'test_echo', 'url': response.url}
+                )
+        
+        # Check for legitimate banking API responses
+        banking_indicators = [
+            'transaction', 'account', 'balance', 'payment', 'transfer',
+            'loan', 'credit', 'debit', 'amount', 'currency', 'status',
+            'success', 'error', 'message', 'code', 'id', 'reference'
+        ]
+        
+        if any(indicator in text_lower for indicator in banking_indicators):
+            # If response contains banking terminology, it's likely a legitimate response
+            if response.status_code in [200, 201, 400, 401, 403]:
+                return ValidationResult(
+                    is_false_positive=True,
+                    confidence=0.9,
+                    reason=f"Banking {attack_type} - legitimate banking API response",
+                    evidence={'status_code': response.status_code, 'context': 'banking_api'}
+                )
+        
+        return ValidationResult(
+            is_false_positive=False,
+            confidence=0.6,
+            reason=f"No {attack_type} false positive patterns detected",
+            evidence={'attack_type': attack_type}
         )
 
     def _analyze_content(self, response: requests.Response, payload: str, attack_type: str) -> float:
