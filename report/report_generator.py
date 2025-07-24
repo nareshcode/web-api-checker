@@ -311,6 +311,8 @@ def generate_report(findings, report_path, api_url=None, curl_cmd=None, curl_inf
     # Process API findings - handle both old format (by finding type) and new format (by severity)
     if isinstance(api_findings, dict) and any(key in api_findings for key in ['critical', 'high', 'medium', 'low']):
         # New format: findings organized by severity level
+        passed = []  # Initialize passed controls list for new format
+        
         for severity_level, findings_list in api_findings.items():
             for finding in findings_list:
                 if isinstance(finding, str):
@@ -784,8 +786,19 @@ def generate_report(findings, report_path, api_url=None, curl_cmd=None, curl_inf
             f.write(f"```bash\n{curl_cmd}\n```\n\n")
         
         f.write("**Tests Performed:**\n")
+        
+        # Check HTTPS status from the new vulnerability structure
+        https_enabled = True  # Default to True, set to False if HTTPS vulnerabilities found
+        if isinstance(api_findings, dict):
+            # Check critical vulnerabilities for HTTPS issues
+            critical_vulns = api_findings.get('critical', [])
+            for vuln in critical_vulns:
+                if isinstance(vuln, str) and 'HTTPS_NOT_ENABLED' in vuln:
+                    https_enabled = False
+                    break
+        
         test_results = [
-            ('HTTPS Implementation', api_findings.get('https', False)),
+            ('HTTPS Implementation', https_enabled),
             ('Authentication Controls', not bool(api_findings.get('open_endpoints', []))),
             ('SQL Injection Protection', not bool(api_findings.get('sql_injection', []))),
             ('XSS Protection', not bool(api_findings.get('xss', []))),
