@@ -11,6 +11,7 @@ import {
   Security as SecurityIcon,
   Dashboard as DashboardIcon,
   History as HistoryIcon,
+  MenuBook as WikiIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -44,6 +45,18 @@ const Navigation: React.FC = () => {
             }}
           >
             Dashboard
+          </Button>
+          <Button
+            color="inherit"
+            startIcon={<WikiIcon />}
+            onClick={() => navigate('/wiki')}
+            variant={location.pathname === '/wiki' ? 'outlined' : 'text'}
+            sx={{
+              borderColor: location.pathname === '/wiki' ? 'white' : 'transparent',
+              color: 'white',
+            }}
+          >
+            Security Wiki
           </Button>
           <Button
             color="inherit"

@@ -1,6 +1,87 @@
 import json
 from datetime import datetime
 
+def categorize_finding(finding_type, finding_data=""):
+    """
+    Categorize individual findings and return priority, timeline, risk assessment, and CVSS score
+    """
+    # Vulnerability categorization matrix with CVSS scores
+    categorization_matrix = {
+        'sql_injection': ('Critical', '0-24h', 'Complete database compromise possible', 9.8),
+        'command_injection': ('Critical', '0-24h', 'Server takeover and system compromise', 9.8),
+        'xxe': ('Critical', '0-24h', 'File disclosure and SSRF attacks', 9.1),
+        'ssrf': ('Critical', '0-24h', 'Internal network access and data exposure', 8.8),
+        'double_spending': ('Critical', '0-24h', 'Financial fraud and monetary theft', 9.5),
+        'race_conditions': ('Critical', '0-24h', 'Financial inconsistencies and fraud', 9.2),
+        'https': ('Critical', '0-24h', 'Data interception and man-in-the-middle attacks', 7.4),
+        'open_endpoint': ('Critical', '0-24h', 'Unauthorized access to protected resources', 8.5),
+        
+        'xss': ('High', '1-7 days', 'Session hijacking and user impersonation', 7.2),
+        'nosql_injection': ('High', '1-7 days', 'Database manipulation and data theft', 7.5),
+        'ldap_injection': ('High', '1-7 days', 'Directory service compromise', 7.3),
+        'path_traversal': ('High', '1-7 days', 'Unauthorized file system access', 7.1),
+        'auth_bypass': ('High', '1-7 days', 'Unauthorized access to protected resources', 8.2),
+        'privilege_escalation': ('High', '1-7 days', 'Unauthorized admin access', 7.8),
+        'bola_attacks': ('High', '1-7 days', 'Unauthorized access to sensitive data', 7.5),
+        'transaction_manipulation': ('High', '1-7 days', 'Financial manipulation and fraud', 8.0),
+        'session_fixation': ('High', '1-7 days', 'Session hijacking and account takeover', 7.0),
+        'kyc_bypass': ('High', '1-7 days', 'KYC verification circumvention', 7.5),
+        'loan_abuse': ('High', '1-7 days', 'Fraudulent loan approvals', 7.8),
+        'webhook_abuse': ('High', '1-7 days', 'Malicious webhook exploitation', 6.8),
+        'open_redirects': ('High', '1-7 days', 'Phishing and malicious redirects', 6.5),
+        
+        'security_headers': ('Medium', '1-30 days', 'Various client-side attacks possible', 5.4),
+        'security_header': ('Medium', '1-30 days', 'Client-side security weaknesses', 5.4),
+        'cors': ('Medium', '1-30 days', 'Cross-origin data access', 5.8),
+        'rate_limiting': ('Medium', '1-30 days', 'Denial of service and abuse', 5.2),
+        'error_handling': ('Medium', '1-30 days', 'System information leakage', 4.3),
+        'metadata_leakage': ('Medium', '1-30 days', 'System information disclosure', 4.3),
+        'verbose_errors': ('Medium', '1-30 days', 'Detailed error information exposure', 4.0),
+        'discount_abuse': ('Medium', '1-30 days', 'Discount system exploitation', 5.0),
+        'micro_transactions': ('Medium', '1-30 days', 'Micro-transaction abuse', 4.5),
+        'idempotency_check': ('Medium', '1-30 days', 'Request replay vulnerabilities', 5.0),
+        
+        'general': ('Low', '1-90 days', 'Minor security improvement needed', 3.0),
+        'information_disclosure': ('Low', '1-90 days', 'Minor information leakage', 3.5)
+    }
+    
+    # Get categorization or default to low priority
+    return categorization_matrix.get(finding_type, ('Low', '1-90 days', 'Minor security concern', 3.0))
+
+def tuple_to_dict_finding(finding_tuple, finding_type=None):
+    """
+    Convert tuple-based finding to dictionary format for consistency
+    Tuple format: (finding_type, description, priority, timeline, risk, payloads, url)
+    """
+    if isinstance(finding_tuple, dict):
+        return finding_tuple  # Already a dict
+    
+    if len(finding_tuple) >= 7:
+        type_name, description, priority, timeline, risk, payloads, url = finding_tuple[:7]
+        
+        # Extract CVSS score from categorize_finding
+        _, _, _, cvss = categorize_finding(type_name)
+        
+        return {
+            'type': type_name,
+            'name': description,
+            'cvss': cvss,
+            'description': description,
+            'impact': risk,
+            'url': url,
+            'payloads': payloads or []
+        }
+    else:
+        return {
+            'type': finding_type or 'unknown',
+            'name': str(finding_tuple),
+            'cvss': 3.0,
+            'description': str(finding_tuple),
+            'impact': 'Unknown impact',
+            'url': '',
+            'payloads': []
+        }
+
 def generate_report(findings, report_path, api_url=None, curl_cmd=None, curl_info=None, severity='all'):
     """
     Generate a professional security assessment report from a senior engineer's perspective.
@@ -21,6 +102,10 @@ def generate_report(findings, report_path, api_url=None, curl_cmd=None, curl_inf
 
 *CVSS factors include: Attack Vector, Complexity, Privileges Required, User Interaction, and Impact on Confidentiality, Integrity, and Availability.*
 """
+
+    def section(title):
+        """Generate a markdown section header"""
+        return f"\n## {title}\n\n"
 
     def categorize_findings_professional(findings, api_url=None):
         """Categorize findings with professional risk assessment"""
@@ -125,12 +210,21 @@ def generate_report(findings, report_path, api_url=None, curl_cmd=None, curl_inf
                 missing_headers = []
                 present_headers = []
                 
-                for url, headers in vuln_data.items():
-                    for header, value in headers.items():
-                        if value is None:
-                            missing_headers.append((header, url))
-                        else:
-                            present_headers.append((header, value, url))
+                # Handle string format from scanner
+                if isinstance(vuln_data, str) and vuln_data.startswith('MISSING_SECURITY_HEADERS:'):
+                    missing_headers_str = vuln_data.replace('MISSING_SECURITY_HEADERS: ', '')
+                    missing_headers_list = [h.strip() for h in missing_headers_str.split(',')]
+                    for header in missing_headers_list:
+                        missing_headers.append((header, api_url))
+                
+                # Handle dictionary format
+                elif isinstance(vuln_data, dict):
+                    for url, headers in vuln_data.items():
+                        for header, value in headers.items():
+                            if value is None:
+                                missing_headers.append((header, url))
+                            else:
+                                present_headers.append((header, value, url))
                 
                 # Group missing headers
                 if missing_headers:
@@ -187,7 +281,6 @@ def generate_report(findings, report_path, api_url=None, curl_cmd=None, curl_inf
     # Extract API findings for later use
     api_findings = findings.get('api', {})
     
-<<<<<<< HEAD
     # Calculate professional security score
     total_critical = len(critical_findings)
     total_high = len(high_findings)
@@ -211,7 +304,6 @@ def generate_report(findings, report_path, api_url=None, curl_cmd=None, curl_inf
     else:
         risk_level = "HIGH RISK"
         risk_color = "🔴"
-=======
     # Handle new structure where vulnerabilities are nested
     if isinstance(api_findings, dict) and 'vulnerabilities' in api_findings:
         api_findings = api_findings['vulnerabilities']
@@ -228,7 +320,7 @@ def generate_report(findings, report_path, api_url=None, curl_cmd=None, curl_inf
                         missing_headers = [h.strip() for h in missing_headers_str.split(',')]
                         
                         for header in missing_headers:
-                            priority, timeline, risk = categorize_finding('security_header', header)
+                            priority, timeline, risk, cvss = categorize_finding('security_header', header)
                             if severity_level == 'critical':
                                 critical_findings.append(('security_headers', f"Missing security header: {header}", priority, timeline, risk, [header], api_url))
                             elif severity_level == 'high':
@@ -240,7 +332,7 @@ def generate_report(findings, report_path, api_url=None, curl_cmd=None, curl_inf
                     
                     elif finding.startswith('METADATA_LEAKAGE:'):
                         # Parse metadata leakage finding
-                        priority, timeline, risk = categorize_finding('metadata_leakage', finding)
+                        priority, timeline, risk, cvss = categorize_finding('metadata_leakage', finding)
                         if severity_level == 'critical':
                             critical_findings.append(('metadata_leakage', finding, priority, timeline, risk, [], api_url))
                         elif severity_level == 'high':
@@ -252,7 +344,7 @@ def generate_report(findings, report_path, api_url=None, curl_cmd=None, curl_inf
                     
                     else:
                         # Handle other finding types
-                        priority, timeline, risk = categorize_finding('general', finding)
+                        priority, timeline, risk, cvss = categorize_finding('general', finding)
                         if severity_level == 'critical':
                             critical_findings.append(('general', finding, priority, timeline, risk, [], api_url))
                         elif severity_level == 'high':
@@ -263,25 +355,28 @@ def generate_report(findings, report_path, api_url=None, curl_cmd=None, curl_inf
                             low_findings.append(('general', finding, priority, timeline, risk, [], api_url))
     else:
         # Old format: findings organized by finding type
+        # Initialize passed controls list for old format
+        passed = []
+        
         for finding_type, finding_data in api_findings.items():
             if finding_type == 'https' and finding_data:
                 passed.append(("HTTPS enabled", "API uses HTTPS"))
             elif finding_type == 'https' and not finding_data:
-                priority, timeline, risk = categorize_finding('https', finding_data)
+                priority, timeline, risk, cvss = categorize_finding('https', finding_data)
                 critical_findings.append((finding_type, f"API not using HTTPS", priority, timeline, risk, [], api_url))
         
             elif finding_type == 'open_endpoints' and not finding_data:
                 passed.append(("All endpoints require authentication", "No open endpoints found"))
             elif finding_type == 'open_endpoints' and finding_data:
                 for endpoint in finding_data:
-                    priority, timeline, risk = categorize_finding('open_endpoint', endpoint)
+                    priority, timeline, risk, cvss = categorize_finding('open_endpoint', endpoint)
                     high_findings.append((finding_type, f"Open endpoint: {endpoint}", priority, timeline, risk, [], endpoint))
         
             elif finding_type in ['sql_injection', 'xss', 'command_injection', 'xxe', 'nosql_injection', 'ldap_injection', 'path_traversal'] and finding_data:
                 for vuln in finding_data:
                     url = vuln.get('url', api_url)
                     payloads = vuln.get('payloads', [])
-                    priority, timeline, risk = categorize_finding(finding_type, vuln)
+                    priority, timeline, risk, cvss = categorize_finding(finding_type, vuln)
                     
                     if priority == 'Critical':
                         critical_findings.append((finding_type, f"{finding_type.replace('_', ' ').title()} on: {url} (Payloads: {len(payloads)})", priority, timeline, risk, payloads, url))
@@ -299,7 +394,7 @@ def generate_report(findings, report_path, api_url=None, curl_cmd=None, curl_inf
                     missing_headers = [h.strip() for h in missing_headers_str.split(',')]
                     
                     for header in missing_headers:
-                        priority, timeline, risk = categorize_finding('security_header', header)
+                        priority, timeline, risk, cvss = categorize_finding('security_header', header)
                         medium_findings.append(('security_headers', f"Missing security header: {header}", priority, timeline, risk, [header], api_url))
                 elif isinstance(finding_data, dict):
                     # Handle the expected format with header details
@@ -308,7 +403,7 @@ def generate_report(findings, report_path, api_url=None, curl_cmd=None, curl_inf
                         present_headers = [h for h, v in headers.items() if v is not None]
                         
                         for header in missing_headers:
-                            priority, timeline, risk = categorize_finding('security_header', header)
+                            priority, timeline, risk, cvss = categorize_finding('security_header', header)
                             medium_findings.append(('security_headers', f"Missing security header {header} on {url}", priority, timeline, risk, [header], url))
                         
                         for header in present_headers:
@@ -317,9 +412,8 @@ def generate_report(findings, report_path, api_url=None, curl_cmd=None, curl_inf
             elif finding_type == 'metadata_leakage' and finding_data:
                 # Handle metadata leakage findings
                 if isinstance(finding_data, str):
-                    priority, timeline, risk = categorize_finding('metadata_leakage', finding_data)
+                    priority, timeline, risk, cvss = categorize_finding('metadata_leakage', finding_data)
                     medium_findings.append(('metadata_leakage', finding_data, priority, timeline, risk, [], api_url))
->>>>>>> bfd4117725ba44aa8412a5089b5e9a41fa289d91
 
     with open(report_path, 'w') as f:
         # Professional Report Header
@@ -358,16 +452,18 @@ def generate_report(findings, report_path, api_url=None, curl_cmd=None, curl_inf
             f.write("*These vulnerabilities pose immediate risks and require emergency remediation.*\n\n")
             
             for i, finding in enumerate(critical_findings, 1):
-                remediation = generate_remediation_table(finding)
-                f.write(f"### {i}. {finding['name']} (CVSS: {finding['cvss']})\n\n")
+                # Convert tuple to dict format if needed
+                finding_dict = tuple_to_dict_finding(finding)
+                remediation = generate_remediation_table(finding_dict)
+                f.write(f"### {i}. {finding_dict['name']} (CVSS: {finding_dict['cvss']})\n\n")
                 
                 # Vulnerability Details Table
                 f.write("| **Attribute** | **Details** |\n")
                 f.write("|---------------|-------------|\n")
-                f.write(f"| **Vulnerability** | {finding['name']} |\n")
-                f.write(f"| **CVSS Score** | **{finding['cvss']}** (Critical) |\n")
-                f.write(f"| **Affected URL** | `{finding['url']}` |\n")
-                f.write(f"| **Business Impact** | {finding['impact']} |\n")
+                f.write(f"| **Vulnerability** | {finding_dict['name']} |\n")
+                f.write(f"| **CVSS Score** | **{finding_dict['cvss']}** (Critical) |\n")
+                f.write(f"| **Affected URL** | `{finding_dict['url']}` |\n")
+                f.write(f"| **Business Impact** | {finding_dict['impact']} |\n")
                 f.write(f"| **Exploitation Complexity** | Low - Can be automated |\n")
                 f.write(f"| **Authentication Required** | None |\n\n")
                 
@@ -379,9 +475,9 @@ def generate_report(findings, report_path, api_url=None, curl_cmd=None, curl_inf
                 f.write(f"| **Short-term** | {remediation['short_term']} | 1-7 days |\n")
                 f.write(f"| **Long-term** | {remediation['long_term']} | 1-30 days |\n\n")
                 
-                if finding['payloads']:
+                if finding_dict['payloads']:
                     f.write("**🎯 Evidence (Sample Payloads):**\n")
-                    for j, payload in enumerate(finding['payloads'][:3], 1):
+                    for j, payload in enumerate(finding_dict['payloads'][:3], 1):
                         f.write(f"{j}. `{payload}`\n")
                     f.write("\n")
                 
@@ -396,15 +492,17 @@ def generate_report(findings, report_path, api_url=None, curl_cmd=None, curl_inf
             f.write("*Address within 7 days to maintain security posture.*\n\n")
             
             for i, finding in enumerate(high_findings, 1):
-                remediation = generate_remediation_table(finding)
-                f.write(f"### {i}. {finding['name']} (CVSS: {finding['cvss']})\n\n")
+                # Convert tuple to dict format if needed
+                finding_dict = tuple_to_dict_finding(finding)
+                remediation = generate_remediation_table(finding_dict)
+                f.write(f"### {i}. {finding_dict['name']} (CVSS: {finding_dict['cvss']})\n\n")
                 
                 f.write("| **Attribute** | **Details** |\n")
                 f.write("|---------------|-------------|\n")
-                f.write(f"| **Vulnerability** | {finding['name']} |\n")
-                f.write(f"| **CVSS Score** | **{finding['cvss']}** (High) |\n")
-                f.write(f"| **Affected URL** | `{finding['url']}` |\n")
-                f.write(f"| **Business Impact** | {finding['impact']} |\n\n")
+                f.write(f"| **Vulnerability** | {finding_dict['name']} |\n")
+                f.write(f"| **CVSS Score** | **{finding_dict['cvss']}** (High) |\n")
+                f.write(f"| **Affected URL** | `{finding_dict['url']}` |\n")
+                f.write(f"| **Business Impact** | {finding_dict['impact']} |\n\n")
                 
                 f.write("**🛠️ Remediation Steps:**\n")
                 f.write(f"- **Immediate:** {remediation['immediate']}\n")
@@ -413,9 +511,7 @@ def generate_report(findings, report_path, api_url=None, curl_cmd=None, curl_inf
                 
                 f.write("---\n\n")
         else:
-<<<<<<< HEAD
             f.write("## ✅ High Priority Vulnerabilities - None Found\n\n")
-=======
             f.write("## 🔄 Dynamic Security Checks\n")
             f.write("No new dynamic checks found yet. The scraper runs every 15 minutes.\n\n")
 
@@ -628,7 +724,6 @@ def generate_report(findings, report_path, api_url=None, curl_cmd=None, curl_inf
         # --- Detailed Technical Results (collapsed) ---
         f.write(section("📋 Detailed Technical Results"))
         f.write("<details>\n<summary>Click to expand detailed technical findings</summary>\n\n")
->>>>>>> bfd4117725ba44aa8412a5089b5e9a41fa289d91
         
         # Medium Priority Findings
         if medium_findings:
@@ -636,11 +731,13 @@ def generate_report(findings, report_path, api_url=None, curl_cmd=None, curl_inf
             f.write("*Address within 30 days for comprehensive security.*\n\n")
             
             for i, finding in enumerate(medium_findings, 1):
-                f.write(f"**{i}. {finding['name']}** (CVSS: {finding['cvss']})  \n")
-                f.write(f"📍 **Location:** `{finding['url']}`  \n")
-                f.write(f"💼 **Impact:** {finding['impact']}  \n")
-                if finding['payloads']:
-                    f.write(f"📝 **Details:** {', '.join(finding['payloads'][:3])}  \n")
+                # Convert tuple to dict format if needed
+                finding_dict = tuple_to_dict_finding(finding)
+                f.write(f"**{i}. {finding_dict['name']}** (CVSS: {finding_dict['cvss']})  \n")
+                f.write(f"📍 **Location:** `{finding_dict['url']}`  \n")
+                f.write(f"💼 **Impact:** {finding_dict['impact']}  \n")
+                if finding_dict['payloads']:
+                    f.write(f"📝 **Details:** {', '.join(finding_dict['payloads'][:3])}  \n")
                 f.write("\n")
         else:
             f.write("## ✅ Medium Priority Issues - None Found\n\n")
@@ -710,9 +807,6 @@ def generate_report(findings, report_path, api_url=None, curl_cmd=None, curl_inf
         f.write("**Confidence Level:** High (Automated + Manual Validation)  \n\n")
         f.write("*This report should be reviewed by qualified security professionals and used as part of a comprehensive security program.*\n")
 
-<<<<<<< HEAD
-    print(f"Professional security report generated: {report_path}") 
-=======
         # --- Comprehensive Check Summary ---
         f.write("\n## 🔍 Comprehensive Security Check Summary\n")
         f.write("The following security checks were executed during this scan:\n\n")
@@ -824,4 +918,3 @@ def generate_report(findings, report_path, api_url=None, curl_cmd=None, curl_inf
                 f.write(f"- {err['endpoint']}: {err['error']}\n")
 
     print(f"Report written to {report_path}") 
->>>>>>> bfd4117725ba44aa8412a5089b5e9a41fa289d91

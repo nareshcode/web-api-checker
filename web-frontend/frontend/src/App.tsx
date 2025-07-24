@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard';
 import ScanHistory from './pages/ScanHistory';
 import ReportDetail from './pages/ReportDetail';
 import TestPage from './pages/TestPage';
+import SecurityWiki from './components/SecurityWiki';
 import Navigation from './components/Navigation';
 
 const theme = createTheme({
@@ -102,6 +103,7 @@ function App() {
           <Box sx={{ flexGrow: 1, p: 3 }}>
             <Routes>
               <Route path="/" element={<Dashboard />} />
+              <Route path="/wiki" element={<SecurityWiki />} />
               <Route path="/history" element={<ScanHistory />} />
               <Route path="/report/:scanId" element={<ReportDetail />} />
               <Route path="/test" element={<TestPage />} />
