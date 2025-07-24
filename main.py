@@ -101,7 +101,14 @@ def main():
 
     if api_url:
         print(f"[+] Scanning API at {api_url}...")
-        findings['api'] = api_scanner.scan_api(api_url, curl_info=curl_info, severity=args.severity)
+        api_results = api_scanner.scan_api(api_url, curl_info=curl_info, severity=args.severity)
+        
+        # Handle new structure with security layers
+        if isinstance(api_results, dict) and 'vulnerabilities' in api_results:
+            findings['api'] = api_results
+        else:
+            # Handle old structure (backward compatibility)
+            findings['api'] = {'vulnerabilities': api_results, 'security_layers': None}
     else:
         print("[!] No valid URL found. Skipping API scan.")
 
