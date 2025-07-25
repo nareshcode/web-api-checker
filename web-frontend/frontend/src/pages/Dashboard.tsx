@@ -24,7 +24,7 @@ const Dashboard: React.FC = () => {
   };
 
   const handleScanComplete = () => {
-    setCurrentScan(null);
+    // setCurrentScan(null); // This was causing the component to disappear
   };
 
   return (

@@ -64,6 +64,7 @@ def emit_progress(scan_id, status, progress, step, findings=None):
             progress_data['findings'] = findings
         
         socketio.emit('scan_progress', progress_data, room=f'scan_{scan_id}')
+        print(f"BE is sending progress: {progress}%")
     except Exception as e:
         print(f"[ERROR] Failed to emit progress: {e}")
 
