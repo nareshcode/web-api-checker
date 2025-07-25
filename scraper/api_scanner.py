@@ -307,7 +307,7 @@ def get_checks_for_severity(severity):
     else:
         return []
 
-def scan_api(api_url, curl_info=None, severity='all'):
+def scan_api(api_url, curl_info=None, severity='all', progress_callback=None):
     """
     Comprehensive API security scanner with banking-specific checks
     """
@@ -388,16 +388,35 @@ def scan_api(api_url, curl_info=None, severity='all'):
             'headers': {}
         })()
     
+    # Helper function for progress updates
+    def update_progress_both(check_index, check_name, status="running"):
+        if status == "running":
+            current_progress = int((check_index / len(checks_to_run)) * 100)
+            message = f"Running {check_name}..."
+        else:
+            current_progress = int(((check_index + 1) / len(checks_to_run)) * 100)
+            message = f"Completed {check_name}"
+        
+        # Call progress callback if provided (for web interface)
+        if progress_callback:
+            progress_callback(current_progress, message)
+        
+        # Update console progress tracker
+        if status == "running":
+            progress.update_progress(message)
+        else:
+            progress.complete_check(f"Running {check_name}...", "complete")
+    
     # Run security checks
-    for check in checks_to_run:
-        progress.update_progress(f"Running {check}...")
+    for i, check in enumerate(checks_to_run):
+        update_progress_both(i, check, "running")
         
         try:
             if check == 'https_check':
                 # HTTPS check
                 if not api_url.startswith('https://'):
                     vulnerabilities['critical'].append("HTTPS_NOT_ENABLED: API is not using HTTPS")
-                progress.complete_check(f"Running {check}...", "complete")
+                update_progress_both(i, check, "complete")
             
             elif check == 'security_headers':
                 # Security headers check
@@ -408,7 +427,7 @@ def scan_api(api_url, curl_info=None, severity='all'):
                 
                 if missing_headers:
                     vulnerabilities['medium'].append(f"MISSING_SECURITY_HEADERS: {', '.join(missing_headers)}")
-                progress.complete_check(f"Running {check}...", "complete")
+                update_progress_both(i, check, "complete")
             
             elif check == 'sql_injection':
                 # SQL Injection check
@@ -1327,5 +1346,9 @@ def scan_api(api_url, curl_info=None, severity='all'):
         'vulnerabilities': vulnerabilities,
         'security_layers': security_layer_info
     }
+    
+    # Final progress callback
+    if progress_callback:
+        progress_callback(100, "Security scan completed")
     
     return findings

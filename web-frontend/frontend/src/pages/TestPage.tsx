@@ -19,7 +19,7 @@ const TestPage: React.FC = () => {
   const [scanId, setScanId] = useState<string>('');
   const [connected, setConnected] = useState(false);
 
-  const { isConnected, sendMessage } = useWebSocket('http://localhost:8000', {
+  const { isConnected, sendMessage } = useWebSocket('/', {
     onConnect: () => {
       addMessage('✅ WebSocket Connected!');
       setConnected(true);

@@ -243,7 +243,7 @@ const ScanProgress: React.FC<ScanProgressProps> = ({ scanId, onUpdate, onComplet
   }, [scanId, isInitialized, updateStatus, addDebugMessage]);
 
   // Enhanced WebSocket connection for real-time updates
-  const { isConnected, lastMessage, sendMessage, reconnect } = useWebSocket(`http://localhost:8000`, {
+  const { isConnected, lastMessage, sendMessage, reconnect } = useWebSocket(`/`, {
     onConnect: () => {
       console.log('Connected to WebSocket');
       addDebugMessage('🔌 WebSocket Connected - Real-time updates enabled');
@@ -332,28 +332,6 @@ const ScanProgress: React.FC<ScanProgressProps> = ({ scanId, onUpdate, onComplet
     }
   };
 
-  const getScanStages = () => {
-    return [
-      'Initializing Scanner',
-      'Testing HTTPS Configuration', 
-      'Analyzing Security Headers',
-      'Testing Injection Vulnerabilities',
-      'Banking Security Checks',
-      'Authentication Testing',
-      'Rate Limiting Analysis',
-      'Security Layer Detection',
-      'Generating Report',
-      'Completed'
-    ];
-  };
-
-  const getCurrentStageIndex = () => {
-    const stages = getScanStages();
-    const currentIndex = stages.findIndex(stage => 
-      currentStage.toLowerCase().includes(stage.toLowerCase().split(' ')[0].toLowerCase())
-    );
-    return currentIndex >= 0 ? currentIndex : Math.floor(progressValue / 10);
-  };
 
   const handleViewReport = () => {
     navigate(`/report/${scanId}`);
@@ -606,21 +584,6 @@ const ScanProgress: React.FC<ScanProgressProps> = ({ scanId, onUpdate, onComplet
             </Box>
           </Paper>
 
-          {/* Scan Stages Stepper */}
-          <Paper elevation={1} sx={{ p: 3, mb: 3, borderRadius: 2 }}>
-            <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', mb: 2 }}>
-              Scan Stages
-            </Typography>
-            <Stepper activeStep={getCurrentStageIndex()} orientation={isMobile ? 'vertical' : 'horizontal'}>
-              {getScanStages().slice(0, 6).map((stage, index) => (
-                <Step key={stage}>
-                  <StepLabel>
-                    <Typography variant="body2">{stage}</Typography>
-                  </StepLabel>
-                </Step>
-              ))}
-            </Stepper>
-          </Paper>
 
           {/* Enhanced Security Analysis Results */}
           {findingsSummary.total > 0 && (

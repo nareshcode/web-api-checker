@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Create axios instance with base configuration
 export const apiClient = axios.create({
-  baseURL: 'http://localhost:8000',
+  baseURL: '/', // Use relative path, setupProxy.js handles routing to backend
   timeout: 30000, // 30 seconds timeout for scans
   headers: {
     'Content-Type': 'application/json',
@@ -54,6 +54,10 @@ export const scanAPI = {
   // Health check
   healthCheck: () =>
     apiClient.get('/api/health'),
+
+  // Generate AI recommendations
+  generateRecommendations: (metrics: any) =>
+    apiClient.post('/api/recommendations', { metrics }),
 };
 
 export default apiClient; 

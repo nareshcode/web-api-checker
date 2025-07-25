@@ -424,18 +424,8 @@ def generate_report(findings, report_path, api_url=None, curl_cmd=None, curl_inf
         f.write("**Assessment Date:** " + str(datetime.now().strftime('%Y-%m-%d %H:%M:%S')) + "  \n")
         f.write("**Assessment Level:** " + severity.upper() + " Security Analysis  \n\n")
         
-        # Executive Summary Table
-        f.write("## 📊 Executive Summary\n\n")
-        f.write("| **Metric** | **Value** | **Assessment** |\n")
-        f.write("|------------|-----------|----------------|\n")
-        f.write(f"| **Target API** | `{api_url or 'Unknown'}` | Production Assessment |\n")
-        f.write(f"| **Security Score** | **{security_score}/100** {risk_color} | {risk_level} |\n")
-        f.write(f"| **Total Issues** | **{total_issues}** | {total_critical}🔴 {total_high}🟠 {total_medium}🟡 {total_low}⚪ |\n")
-        f.write(f"| **Immediate Action Required** | **{total_critical + total_high}** | Critical & High Priority |\n")
-        f.write(f"| **Assessment Scope** | {severity.title()} Scan | {'Comprehensive' if severity == 'all' else 'Targeted'} Analysis |\n\n")
-        
-        # Risk Assessment Matrix
-        f.write("## 🎯 Risk Assessment Matrix\n\n")
+        # Risk Assessment Matrix - moved to top for immediate visibility
+        f.write("## 🎯 Executive Summary\n\n")
         f.write("| **Risk Level** | **Count** | **Timeline** | **Business Impact** |\n")
         f.write("|----------------|-----------|--------------|---------------------|\n")
         f.write(f"| 🔴 **Critical** | {total_critical} | **Immediate (0-24h)** | System compromise, data breach |\n")
@@ -443,10 +433,8 @@ def generate_report(findings, report_path, api_url=None, curl_cmd=None, curl_inf
         f.write(f"| 🟡 **Medium** | {total_medium} | **Planned (1-30 days)** | Limited exposure, compliance issues |\n")
         f.write(f"| ⚪ **Low** | {total_low} | **Scheduled (1-90 days)** | Minor improvements, best practices |\n\n")
         
-        # CVSS Explanation
-        f.write("## 📖 Understanding CVSS Scores\n\n")
-        f.write(get_cvss_explanation())
-        f.write("\n")
+        # Overall Security Score
+        f.write(f"**Overall Security Score:** {risk_color} **{security_score}/100** ({risk_level})\n\n")
         
         # Critical Findings
         if critical_findings:
@@ -589,145 +577,28 @@ def generate_report(findings, report_path, api_url=None, curl_cmd=None, curl_inf
                 f.write(f"- Security layers active: **{unique_layers}**\n")
                 
             else:
-                f.write("**🎯 Attacks Blocked by Security Layers:**\n\n")
-                f.write("**No attacks were blocked during testing.**\n\n")
-                f.write("**🔍 Detailed Security Layer Analysis:**\n\n")
+                f.write("**🎯 Security Layer Testing Results:**\n\n")
+                f.write("No security layer blocks were detected during testing.\n\n")
                 
-                # Comprehensive security layer testing details
-                f.write("**🧪 Security Layer Testing Methodology:**\n")
-                f.write("The scanner performed comprehensive security layer detection using the following approach:\n\n")
+                # Simplified security layer results
+                security_layer_results = [
+                    ("🛡️ WAF Protection", security_layers.get('waf_detected', False)),
+                    ("⏱️ Rate Limiting", security_layers.get('rate_limiting_detected', False)),
+                    ("🔐 Auth Blocks", security_layers.get('auth_blocks_detected', False)),
+                    ("🤖 CAPTCHA", security_layers.get('captcha_detected', False)),
+                    ("🎯 Challenge Response", security_layers.get('challenge_detected', False))
+                ]
                 
-                f.write("**1. 🛡️ WAF (Web Application Firewall) Detection:**\n")
-                f.write("- **Test Payloads:** SQL injection, XSS, command injection, path traversal\n")
-                f.write("- **Detection Method:** Analyze response headers, status codes, and content patterns\n")
-                f.write("- **Indicators:** Cloudflare headers, WAF-specific error messages, 403/406 status codes\n")
-                f.write("- **Test Results:** " + ("✅ WAF Detected" if security_layers.get('waf_detected', False) else "❌ No WAF Detected") + "\n\n")
-                
-                f.write("**2. ⏱️ Rate Limiting Detection:**\n")
-                f.write("- **Test Method:** Rapid request patterns and burst testing\n")
-                f.write("- **Detection Method:** Monitor for 429 status codes, Retry-After headers, rate limit headers\n")
-                f.write("- **Indicators:** X-RateLimit-* headers, 429 Too Many Requests, Retry-After headers\n")
-                f.write("- **Test Results:** " + ("✅ Rate Limiting Detected" if security_layers.get('rate_limiting_detected', False) else "❌ No Rate Limiting Detected") + "\n\n")
-                
-                f.write("**3. 🔐 Authentication Block Detection:**\n")
-                f.write("- **Test Payloads:** Unauthorized access attempts, invalid tokens, admin bypass attempts\n")
-                f.write("- **Detection Method:** Analyze 401/403 responses, authentication headers, error messages\n")
-                f.write("- **Indicators:** WWW-Authenticate headers, 401 Unauthorized, 403 Forbidden\n")
-                f.write("- **Test Results:** " + ("✅ Auth Blocks Detected" if security_layers.get('auth_blocks_detected', False) else "❌ No Auth Blocks Detected") + "\n\n")
-                
-                f.write("**4. 🤖 CAPTCHA Detection:**\n")
-                f.write("- **Test Method:** Automated request patterns and bot-like behavior\n")
-                f.write("- **Detection Method:** Look for CAPTCHA challenges, bot detection responses\n")
-                f.write("- **Indicators:** CAPTCHA forms, bot detection messages, challenge pages\n")
-                f.write("- **Test Results:** " + ("✅ CAPTCHA Detected" if security_layers.get('captcha_detected', False) else "❌ No CAPTCHA Detected") + "\n\n")
-                
-                f.write("**5. 🎯 Challenge Response Detection:**\n")
-                f.write("- **Test Method:** Suspicious request patterns and unusual behavior\n")
-                f.write("- **Detection Method:** Analyze for challenge-response mechanisms\n")
-                f.write("- **Indicators:** Challenge pages, verification requests, suspicious activity responses\n")
-                f.write("- **Test Results:** " + ("✅ Challenge Response Detected" if security_layers.get('challenge_detected', False) else "❌ No Challenge Response Detected") + "\n\n")
-                
-                f.write("**📊 Comprehensive Test Results:**\n")
-                f.write("| Security Layer | Status | Detection Method | Confidence |\n")
-                f.write("|----------------|--------|------------------|------------|\n")
-                f.write(f"| WAF Protection | {'✅ Active' if security_layers.get('waf_detected', False) else '❌ Not Detected'} | Header Analysis | {'High' if security_layers.get('waf_detected', False) else 'N/A'} |\n")
-                f.write(f"| Rate Limiting | {'✅ Active' if security_layers.get('rate_limiting_detected', False) else '❌ Not Detected'} | Status Code Analysis | {'High' if security_layers.get('rate_limiting_detected', False) else 'N/A'} |\n")
-                f.write(f"| Auth Blocks | {'✅ Active' if security_layers.get('auth_blocks_detected', False) else '❌ Not Detected'} | Response Analysis | {'High' if security_layers.get('auth_blocks_detected', False) else 'N/A'} |\n")
-                f.write(f"| CAPTCHA | {'✅ Active' if security_layers.get('captcha_detected', False) else '❌ Not Detected'} | Content Analysis | {'Medium' if security_layers.get('captcha_detected', False) else 'N/A'} |\n")
-                f.write(f"| Challenge Response | {'✅ Active' if security_layers.get('challenge_detected', False) else '❌ Not Detected'} | Pattern Analysis | {'Medium' if security_layers.get('challenge_detected', False) else 'N/A'} |\n\n")
-                
-                f.write("**🔬 Detailed Analysis:**\n")
-                f.write("**Attack Types Tested:**\n")
-                attack_types = security_layers.get('attack_blocks', {})
-                for attack_type, blocks in attack_types.items():
-                    f.write(f"- **{attack_type.replace('_', ' ').title()}:** {len(blocks)} payloads tested\n")
-                
-                f.write(f"\n**📈 Security Layer Statistics:**\n")
-                f.write(f"- Total Security Layers Tested: **{len(security_layers.get('security_layers', []))}**\n")
-                f.write(f"- Attack Types Monitored: **{len(attack_types)}**\n")
-                f.write(f"- Total Test Payloads Sent: **Multiple** (SQL injection, XSS, command injection, auth bypass, banking attacks)\n")
-                f.write(f"- Total Blocked Requests: **{len(blocked_requests)}**\n")
-                f.write(f"- Detection Coverage: **Comprehensive** (All major security layers tested)\n\n")
-                
-                f.write("**💡 Security Assessment:**\n")
-                f.write("**No security blocks were detected during testing. This comprehensive analysis reveals:**\n\n")
-                f.write("**✅ Positive Indicators:**\n")
-                f.write("- The API responded normally to all test payloads (no vulnerabilities triggered)\n")
-                f.write("- No obvious security weaknesses were exploited\n")
-                f.write("- The API appears to be well-protected against basic attack vectors\n")
-                f.write("- Security layers may be working silently in the background\n\n")
-                
-                f.write("**⚠️ Considerations:**\n")
-                f.write("- Security layers may be configured to allow certain test patterns\n")
-                f.write("- Advanced security measures might not be triggered by basic payloads\n")
-                f.write("- The API might have sophisticated protection that doesn't block obvious attacks\n")
-                f.write("- Some security layers may require specific conditions to activate\n\n")
-                
-                f.write("**🔍 Technical Details:**\n")
-                f.write("**Test Payload Categories:**\n")
-                f.write("- **SQL Injection:** 15+ payloads including UNION, OR, DROP, etc.\n")
-                f.write("- **XSS Attacks:** 10+ payloads including script tags, event handlers\n")
-                f.write("- **Command Injection:** 8+ payloads including shell commands, pipes\n")
-                f.write("- **Path Traversal:** 6+ payloads including directory traversal patterns\n")
-                f.write("- **Auth Bypass:** 5+ payloads including admin bypass, token manipulation\n")
-                f.write("- **Banking Attacks:** 8+ payloads including double spending, race conditions\n\n")
-                
-                f.write("**🛡️ Security Layer Data Structure:**\n")
-                f.write("The following detailed security layer information was collected and analyzed:\n")
-                f.write(f"- **Security Layers Tested:** {len(security_layers.get('security_layers', []))} (WAF, Rate Limiting, Auth, CAPTCHA, Challenge)\n")
-                f.write(f"- **Attack Types Monitored:** {len(attack_types)} (SQL injection, XSS, command injection, auth bypass, banking attacks)\n")
-                f.write(f"- **Test Payloads Sent:** Multiple comprehensive payloads across all attack categories\n")
-                f.write(f"- **Detection Methods:** Header analysis, status code analysis, content analysis, pattern matching\n")
-                f.write(f"- **Confidence Levels:** High for WAF/Rate Limiting, Medium for CAPTCHA/Challenge Response\n")
+                f.write("| Security Layer | Status |\n")
+                f.write("|----------------|--------|\n")
+                for layer_name, detected in security_layer_results:
+                    status = "✅ Active" if detected else "❌ Not Detected"
+                    f.write(f"| {layer_name} | {status} |\n")
+                f.write("\n")
         else:
             f.write("Security layer detection was not enabled or no data available.\n")
         
-        # --- Security Controls Working Well ---
-        f.write("\n## ✅ Security Controls Working Well\n")
-        
-        if security_layers:
-            working_controls = []
-            
-            if security_layers.get('waf_detected'):
-                working_controls.append(("🛡️ WAF Protection", "Web Application Firewall is actively blocking malicious requests"))
-            
-            if security_layers.get('rate_limiting_detected'):
-                working_controls.append(("⏱️ Rate Limiting", "Rate limiting is protecting against brute force and DDoS attacks"))
-            
-            if security_layers.get('auth_blocks_detected'):
-                working_controls.append(("🔐 Authentication Blocks", "Authentication system is properly blocking unauthorized access"))
-            
-            if security_layers.get('captcha_detected'):
-                working_controls.append(("🤖 CAPTCHA Protection", "CAPTCHA system is protecting against automated attacks"))
-            
-            if security_layers.get('challenge_detected'):
-                working_controls.append(("🎯 Challenge Response", "Challenge-response system is protecting against automated attacks"))
-            
-            if working_controls:
-                f.write("The following security measures are actively protecting your API:\n\n")
-                for control in working_controls:
-                    f.write(f"- {control[0]}\n")
-                    f.write(f"  - {control[1]}\n")
-            elif passed:
-                f.write("The following security measures are properly implemented:\n\n")
-                for issue, detail in passed:
-                    f.write(f"- ✅ **{issue}**\n")
-                    f.write(f"  - {detail}\n")
-            else:
-                f.write("No security controls are currently working properly.\n")
-        elif passed:
-            f.write("The following security measures are properly implemented:\n\n")
-            for issue, detail in passed:
-                f.write(f"- ✅ **{issue}**\n")
-                f.write(f"  - {detail}\n")
-        else:
-            f.write("No security controls are currently working properly.\n")
-
-        # --- Detailed Technical Results (collapsed) ---
-        f.write(section("📋 Detailed Technical Results"))
-        f.write("<details>\n<summary>Click to expand detailed technical findings</summary>\n\n")
-        
-        # Medium Priority Findings
+        # Medium Priority Findings - moved up to main report
         if medium_findings:
             f.write("## 📋 Medium Priority Issues\n\n")
             f.write("*Address within 30 days for comprehensive security.*\n\n")
@@ -744,48 +615,77 @@ def generate_report(findings, report_path, api_url=None, curl_cmd=None, curl_inf
         else:
             f.write("## ✅ Medium Priority Issues - None Found\n\n")
         
-        # Security Controls Working Well
-        if passed_controls:
-            f.write("## ✅ Security Controls Functioning Properly\n\n")
-            f.write("*These security measures are correctly implemented and functioning as expected.*\n\n")
+        # --- Security Controls Working Well - combined section ---
+        f.write("## ✅ Security Controls & Protections\n\n")
+        
+        security_items = []
+        
+        # Add security layer protections
+        if security_layers:
+            if security_layers.get('waf_detected'):
+                security_items.append(("🛡️ WAF Protection", "Web Application Firewall is actively blocking malicious requests"))
             
+            if security_layers.get('rate_limiting_detected'):
+                security_items.append(("⏱️ Rate Limiting", "Rate limiting is protecting against brute force and DDoS attacks"))
+            
+            if security_layers.get('auth_blocks_detected'):
+                security_items.append(("🔐 Authentication Blocks", "Authentication system is properly blocking unauthorized access"))
+            
+            if security_layers.get('captcha_detected'):
+                security_items.append(("🤖 CAPTCHA Protection", "CAPTCHA system is protecting against automated attacks"))
+            
+            if security_layers.get('challenge_detected'):
+                security_items.append(("🎯 Challenge Response", "Challenge-response system is protecting against automated attacks"))
+        
+        # Add passed controls
+        if passed:
+            for issue, detail in passed:
+                security_items.append((issue, detail))
+        
+        if passed_controls:
+            for control, detail in passed_controls:
+                security_items.append((control, detail))
+        
+        if security_items:
+            f.write("The following security measures are properly implemented:\n\n")
             f.write("| **Security Control** | **Status** |\n")
             f.write("|---------------------|------------|\n")
-            for control, detail in passed_controls:
+            for control, detail in security_items:
                 f.write(f"| {control} | ✅ {detail} |\n")
             f.write("\n")
+        else:
+            f.write("No security controls are currently working properly.\n\n")
         
-        # Professional Recommendations
-        f.write("## 🔧 Professional Recommendations\n\n")
+        # Professional Recommendations - simplified and moved to main report
+        f.write("## 🔧 Recommendations\n\n")
         
         if total_critical > 0:
-            f.write("### 🚨 Immediate Actions (Next 24 Hours)\n")
-            f.write("1. **Emergency Response:** Activate incident response procedures\n")
-            f.write("2. **Critical Patching:** Address all critical vulnerabilities immediately\n")
-            f.write("3. **Access Review:** Audit and restrict access to affected systems\n")
-            f.write("4. **Monitoring:** Implement enhanced monitoring for exploitation attempts\n\n")
+            f.write("### 🚨 Immediate Actions (0-24h)\n")
+            f.write("- Address all critical vulnerabilities immediately\n")
+            f.write("- Implement emergency monitoring for exploitation attempts\n\n")
         
         if total_high > 0:
-            f.write("### ⚠️ Urgent Actions (Next 7 Days)\n")
-            f.write("1. **Patch Management:** Deploy fixes for high-priority vulnerabilities\n")
-            f.write("2. **Security Testing:** Conduct focused penetration testing\n")
-            f.write("3. **Code Review:** Review code for similar vulnerability patterns\n\n")
+            f.write("### ⚠️ Urgent Actions (1-7 days)\n")
+            f.write("- Deploy fixes for high-priority vulnerabilities\n")
+            f.write("- Conduct focused security testing\n\n")
         
-        f.write("### 📈 Long-term Security Improvements\n")
-        f.write("1. **Security by Design:** Integrate security into development lifecycle\n")
-        f.write("2. **Regular Assessments:** Implement quarterly security scans\n")
-        f.write("3. **Team Training:** Provide security awareness training to developers\n")
-        f.write("4. **Compliance:** Ensure alignment with industry security standards\n\n")
+        if total_medium > 0 or total_low > 0:
+            f.write("### 📈 Planned Improvements (1-30 days)\n")
+            f.write("- Address medium and low priority findings\n")
+            f.write("- Implement regular security assessments\n\n")
+
+        # --- Technical Details Section (Collapsed) ---
+        f.write("\n---\n\n")
+        f.write("## 📋 Technical Details\n\n")
+        f.write("<details>\n<summary>Click to expand technical assessment details</summary>\n\n")
         
-        # Testing Details (Collapsed)
-        f.write("## 📋 Technical Assessment Details\n\n")
-        f.write("<details>\n<summary>Click to expand technical testing details</summary>\n\n")
-        
+        # Testing command
         if curl_cmd:
-            f.write("**Test Command:**\n")
+            f.write("### Test Command\n")
             f.write(f"```bash\n{curl_cmd}\n```\n\n")
         
-        f.write("**Tests Performed:**\n")
+        # Test results summary
+        f.write("### Test Results Summary\n\n")
         
         # Check HTTPS status from the new vulnerability structure
         https_enabled = True  # Default to True, set to False if HTTPS vulnerabilities found
@@ -810,19 +710,8 @@ def generate_report(findings, report_path, api_url=None, curl_cmd=None, curl_inf
             status = "✅ PASS" if passed else "❌ FAIL"
             f.write(f"- **{test_name}:** {status}\n")
         
-        f.write("\n</details>\n\n")
-        
-        # Report Footer
-        f.write("---\n\n")
-        f.write("**Report Generated:** " + str(datetime.now().strftime('%Y-%m-%d %H:%M:%S')) + "  \n")
-        f.write("**Tool:** CyberSec Bot v2.0  \n")
-        f.write("**Methodology:** OWASP API Security Top 10 + Custom Testing  \n")
-        f.write("**Confidence Level:** High (Automated + Manual Validation)  \n\n")
-        f.write("*This report should be reviewed by qualified security professionals and used as part of a comprehensive security program.*\n")
-
-        # --- Comprehensive Check Summary ---
-        f.write("\n## 🔍 Comprehensive Security Check Summary\n")
-        f.write("The following security checks were executed during this scan:\n\n")
+        # Comprehensive check summary
+        f.write("\n### Security Checks Executed\n\n")
         
         # Define all possible checks with descriptions
         all_checks = {
@@ -850,12 +739,6 @@ def generate_report(findings, report_path, api_url=None, curl_cmd=None, curl_inf
             'kyc_bypass': 'KYC Bypass Testing',
             'loan_abuse': 'Loan Abuse Testing',
             'webhook_abuse': 'Webhook Abuse Testing',
-            'open_redirects': 'Open Redirect Testing',
-            'security_headers': 'Security Headers Analysis',
-            'cors_misconfig': 'CORS Misconfiguration Testing',
-            'jwt_attacks': 'JWT Token Security Testing',
-            'rate_limiting': 'Rate Limiting Analysis',
-            'session_management': 'Session Management Testing',
             'idempotency_check': 'Idempotency Testing',
             'verbose_errors': 'Verbose Error Detection',
             'metadata_leakage': 'Metadata Leakage Detection',
@@ -873,47 +756,11 @@ def generate_report(findings, report_path, api_url=None, curl_cmd=None, curl_inf
         
         checks_to_show = severity_checks.get(severity, severity_checks['all'])
         
-        # Group checks by category
-        check_categories = {
-            '🔐 Authentication & Authorization': [
-                'auth_bypass', 'jwt_attacks', 'session_management', 'session_fixation', 'privilege_escalation'
-            ],
-            '🛡️ Injection Attacks': [
-                'sql_injection', 'command_injection', 'xss', 'xxe', 'ssrf'
-            ],
-            '🏦 Banking-Specific Security': [
-                'double_spending', 'race_conditions', 'bola_attacks', 'transaction_manipulation',
-                'kyc_bypass', 'loan_abuse', 'webhook_abuse', 'discount_abuse', 'micro_transactions'
-            ],
-            '🌐 Web Security': [
-                'open_endpoints', 'path_traversal', 'open_redirects', 'security_headers', 'cors_misconfig'
-            ],
-            '⚡ Performance & Reliability': [
-                'rate_limiting', 'idempotency_check'
-            ],
-            '🔍 Information Disclosure': [
-                'verbose_errors', 'metadata_leakage'
-            ],
-            '🔒 Infrastructure Security': [
-                'https_check'
-            ]
-        }
-        
-        # Show executed checks by category
-        for category, checks in check_categories.items():
-            executed_checks = [check for check in checks if check in checks_to_show]
-            if executed_checks:
-                f.write(f"\n### {category}\n")
-                for check in executed_checks:
-                    check_name = all_checks.get(check, check.replace('_', ' ').title())
-                    f.write(f"- ✅ **{check_name}**\n")
-        
         # Summary statistics
         total_checks = len(checks_to_show)
-        f.write(f"\n**📊 Check Summary:**\n")
+        f.write(f"**📊 Scan Statistics:**\n")
         f.write(f"- Total checks executed: **{total_checks}**\n")
         f.write(f"- Scan severity level: **{severity.upper()}**\n")
-        f.write(f"- Categories covered: **{len([cat for cat, checks in check_categories.items() if any(check in checks_to_show for check in checks)])}**\n")
         
         # Show security layer testing
         if security_layers:
@@ -921,13 +768,22 @@ def generate_report(findings, report_path, api_url=None, curl_cmd=None, curl_inf
             if security_layers.get('blocked_requests'):
                 f.write(f"- Security blocks detected: **{len(security_layers['blocked_requests'])}**\n")
             else:
-                f.write(f"- Security blocks detected: **0** (API responded normally to test payloads)\n")
+                f.write(f"- Security blocks detected: **0**\n")
         else:
             f.write(f"- Security layer detection: **DISABLED**\n")
 
+        # Scan errors
         if 'errors' in api_findings:
-            f.write(section("⚠️ Scan Errors"))
+            f.write("\n### Scan Errors\n\n")
             for err in api_findings['errors']:
                 f.write(f"- {err['endpoint']}: {err['error']}\n")
+        
+        f.write("\n</details>\n\n")
+        
+        # Report Footer
+        f.write("---\n\n")
+        f.write("**Report Generated:** " + str(datetime.now().strftime('%Y-%m-%d %H:%M:%S')) + "  \n")
+        f.write("**Tool:** CyberSec Bot v2.0  \n")
+        f.write("**Methodology:** OWASP API Security Top 10 + Custom Testing  \n\n")
 
     print(f"Report written to {report_path}") 

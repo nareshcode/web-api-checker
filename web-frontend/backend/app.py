@@ -8,6 +8,7 @@ import sys
 import os
 import json
 from datetime import datetime
+import openai
 
 # Add the parent directory to sys.path to import from the existing scanner
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
@@ -78,72 +79,46 @@ def run_scan_async(scan_id, target, curl_info, severity):
         # Step 1: Initialize
         print(f"[DEBUG] Step 1: Initializing scan {scan_id}")
         scan_progress.status = 'running'
-        scan_progress.progress = 10
+        scan_progress.progress = 5
         scan_progress.current_step = 'Initializing security scanner...'
-        emit_progress(scan_id, 'running', 10, 'Initializing security scanner...')
-        time.sleep(1)
+        emit_progress(scan_id, 'running', 5, 'Initializing security scanner...')
+        time.sleep(0.5)
         
         # Step 2: Parse input
         print(f"[DEBUG] Step 2: Parsing input for {scan_id}")
-        scan_progress.progress = 20
+        scan_progress.progress = 10
         scan_progress.current_step = 'Parsing target and configuration...'
-        emit_progress(scan_id, 'running', 20, 'Parsing target and configuration...')
-        time.sleep(1)
-        
-        # Step 3: Start scanning with incremental progress
-        print(f"[DEBUG] Step 3: Starting security checks for {scan_id}")
-        scan_progress.progress = 30
-        scan_progress.current_step = 'Running security checks...'
-        emit_progress(scan_id, 'running', 30, 'Running security checks...')
-        
-        # Step 4: Add incremental progress during scanning
-        print(f"[DEBUG] Step 4: Running actual scan for {scan_id} with severity {severity}")
-        
-        # Break scanning into smaller progress increments
-        scan_progress.progress = 35
-        scan_progress.current_step = 'Testing HTTPS and authentication...'
-        emit_progress(scan_id, 'running', 35, 'Testing HTTPS and authentication...')
+        emit_progress(scan_id, 'running', 10, 'Parsing target and configuration...')
         time.sleep(0.5)
         
-        scan_progress.progress = 40
-        scan_progress.current_step = 'Checking for injection vulnerabilities...'
-        emit_progress(scan_id, 'running', 40, 'Checking for injection vulnerabilities...')
-        time.sleep(0.5)
+        # Step 3: Define progress callback for real-time updates
+        def progress_callback(progress_percent, step_message):
+            # Ensure progress is between 15-85 (leaving room for report generation)
+            adjusted_progress = 15 + int((progress_percent / 100) * 70)
+            scan_progress.progress = adjusted_progress
+            scan_progress.current_step = step_message
+            emit_progress(scan_id, 'running', adjusted_progress, step_message)
         
-        scan_progress.progress = 45
-        scan_progress.current_step = 'Testing for XSS vulnerabilities...'
-        emit_progress(scan_id, 'running', 45, 'Testing for XSS vulnerabilities...')
-        time.sleep(0.5)
+        print(f"[DEBUG] Step 3: Starting security checks for {scan_id} with severity {severity}")
+        scan_progress.progress = 15
+        scan_progress.current_step = 'Starting security checks...'
+        emit_progress(scan_id, 'running', 15, 'Starting security checks...')
         
-        scan_progress.progress = 50
-        scan_progress.current_step = 'Analyzing security headers...'
-        emit_progress(scan_id, 'running', 50, 'Analyzing security headers...')
-        time.sleep(0.5)
-        
-        scan_progress.progress = 55
-        scan_progress.current_step = 'Testing authentication bypass...'
-        emit_progress(scan_id, 'running', 55, 'Testing authentication bypass...')
-        time.sleep(0.5)
-        
-        scan_progress.progress = 60
-        scan_progress.current_step = 'Performing deep security analysis...'
-        emit_progress(scan_id, 'running', 60, 'Performing deep security analysis...')
-        
-        # Perform the actual scan
-        findings = {'api': api_scanner.scan_api(target, curl_info=curl_info, severity=severity)}
+        # Perform the actual scan with real-time progress updates
+        findings = {'api': api_scanner.scan_api(target, curl_info=curl_info, severity=severity, progress_callback=progress_callback)}
         print(f"[DEBUG] Scan completed for {scan_id}, found {len(findings.get('api', {}))} findings")
         
-        scan_progress.progress = 70
+        scan_progress.progress = 85
         scan_progress.current_step = 'Analyzing vulnerabilities...'
         scan_progress.findings = findings
-        emit_progress(scan_id, 'running', 70, 'Analyzing vulnerabilities...', findings)
-        time.sleep(1)
+        emit_progress(scan_id, 'running', 85, 'Analyzing vulnerabilities...', findings)
+        time.sleep(0.5)
         
-        # Step 5: Generate report
-        print(f"[DEBUG] Step 5: Generating report for {scan_id}")
-        scan_progress.progress = 85
+        # Step 4: Generate report
+        print(f"[DEBUG] Step 4: Generating report for {scan_id}")
+        scan_progress.progress = 90
         scan_progress.current_step = 'Generating security report...'
-        emit_progress(scan_id, 'running', 85, 'Generating security report...')
+        emit_progress(scan_id, 'running', 90, 'Generating security report...')
         
         # Generate report content
         report_path = f'/tmp/report_{scan_id}.md'
@@ -164,7 +139,7 @@ def run_scan_async(scan_id, target, curl_info, severity):
         os.remove(report_path)
         
         # Complete the scan
-        print(f"[DEBUG] Step 6: Completing scan {scan_id}")
+        print(f"[DEBUG] Step 5: Completing scan {scan_id}")
         scan_progress.status = 'completed'
         scan_progress.progress = 100
         scan_progress.current_step = 'Scan completed successfully!'
@@ -377,6 +352,86 @@ def list_scans():
         
     except Exception as e:
         return jsonify({'error': f'Failed to list scans: {str(e)}'}), 500
+
+@app.route('/api/recommendations', methods=['POST'])
+def generate_recommendations():
+    """Generate AI-powered security recommendations"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'Request data required'}), 400
+        
+        # Extract metrics from request
+        metrics = data.get('metrics', {})
+        critical = metrics.get('critical', 0)
+        high = metrics.get('high', 0)
+        medium = metrics.get('medium', 0)
+        low = metrics.get('low', 0)
+        issues = metrics.get('issues', {})
+        
+        # Set OpenAI API key
+        openai.api_key = os.getenv('') #Replace with our OpenAI API key + DONT PUSH AS IT IS PUBLIC REPO
+        if not openai.api_key:
+            return jsonify({'error': 'OpenAI API key not configured'}), 500
+        
+        # Create minimal, efficient prompt
+        critical_issues = [i.get('name', '') for i in issues.get('critical', [])][:3]
+        high_issues = [i.get('name', '') for i in issues.get('high', [])][:3]
+        medium_issues = [i.get('name', '') for i in issues.get('medium', [])][:3]
+        
+        prompt = f"""API Security Scan Results:
+Critical({critical}): {', '.join(critical_issues) if critical_issues else 'none'}
+High({high}): {', '.join(high_issues) if high_issues else 'none'}
+Medium({medium}): {', '.join(medium_issues) if medium_issues else 'none'}
+
+Generate 2 bullet-point recommendations (10-15 words each):
+1. Immediate technical actions for highest severity
+2. Next security improvements
+
+Example format:
+• Implement parameterized queries for SQL injection endpoints
+• Add input validation to user registration API
+• Deploy Content Security Policy headers
+
+Be specific, technical, actionable. No timeframes or generic advice."""
+        
+        try:
+            response = openai.ChatCompletion.create(
+                model="gpt-4",
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=80,
+                temperature=0.2
+            )
+            
+            recommendations_text = response.choices[0].message.content.strip()
+            
+            # Parse response into sections
+            sections = recommendations_text.split('\n\n')
+            priority1 = ""
+            priority2 = ""
+            
+            for section in sections:
+                if 'Priority 1' in section or 'Immediate' in section:
+                    priority1 = section.replace('1. Priority 1 (Immediate):', '').replace('**Priority 1 (Immediate):**', '').strip()
+                elif 'Priority 2' in section or 'Long-term' in section:
+                    priority2 = section.replace('2. Priority 2 (Long-term):', '').replace('**Priority 2 (Long-term):**', '').strip()
+            
+            return jsonify({
+                'priority1': priority1 or "• Implement parameterized queries for SQL injection\n• Add proper input validation to all endpoints\n• Enable multi-factor authentication",
+                'priority2': priority2 or "• Deploy WAF with OWASP rule sets\n• Add CSP, HSTS, X-Frame-Options headers\n• Implement rate limiting (100 req/min per IP)"
+            })
+            
+        except Exception as openai_error:
+            print(f"OpenAI API error: {openai_error}")
+            # Fallback recommendations
+            return jsonify({
+                'priority1': "• Implement parameterized queries for SQL injection\n• Add proper input validation to all endpoints\n• Enable multi-factor authentication",
+                'priority2': "• Deploy WAF with OWASP rule sets\n• Add CSP, HSTS, X-Frame-Options headers\n• Implement rate limiting (100 req/min per IP)"
+            })
+            
+    except Exception as e:
+        print(f"Recommendations endpoint error: {e}")
+        return jsonify({'error': 'Failed to generate recommendations'}), 500
 
 @socketio.on('connect')
 def handle_connect():
