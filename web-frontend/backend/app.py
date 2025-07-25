@@ -45,8 +45,9 @@ active_scans = {}
 completed_scans = {}
 
 class ScanProgress:
-    def __init__(self, scan_id):
+    def __init__(self, scan_id, target_url=None):
         self.scan_id = scan_id
+        self.target_url = target_url
         self.status = 'initializing'
         self.progress = 0
         self.current_step = 'Preparing scan...'
@@ -233,7 +234,7 @@ def start_scan():
         scan_id = str(uuid.uuid4())
         
         # Create scan progress tracker
-        scan_progress = ScanProgress(scan_id)
+        scan_progress = ScanProgress(scan_id, target)
         active_scans[scan_id] = scan_progress
         
         # Start scan in background thread
@@ -313,6 +314,7 @@ def get_report(scan_id):
         
         return jsonify({
             'scan_id': scan_id,
+            'target_url': scan.target_url,
             'report_content': scan.report_content,
             'findings': scan.findings,
             'start_time': scan.start_time.isoformat(),
@@ -375,7 +377,7 @@ def generate_recommendations():
         issues = metrics.get('issues', {})
         
         # Set OpenAI API key
-        openai.api_key = os.getenv('OPENAI_API_KEY')
+        openai.api_key = ''
         if not openai.api_key:
             return jsonify({'error': 'OpenAI API key not configured'}), 500
         

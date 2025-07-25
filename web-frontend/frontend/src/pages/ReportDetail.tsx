@@ -85,6 +85,7 @@ SyntaxHighlighter.registerLanguage('bash', bash);
 
 interface ReportData {
   scan_id: string;
+  target_url: string;
   report_content: string;
   findings: any;
   start_time: string;
@@ -1306,6 +1307,30 @@ const ReportDetail: React.FC = () => {
                     </Typography>
                   </TableCell>
                   <TableCell>Unique identifier for this security scan</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <WebIcon fontSize="small" />
+                      Target URL
+                    </Box>
+                  </TableCell>
+                  <TableCell>
+                    <Typography 
+                      variant="body2" 
+                      sx={{ 
+                        fontFamily: 'monospace', 
+                        bgcolor: 'grey.100', 
+                        p: 1, 
+                        borderRadius: 1,
+                        wordBreak: 'break-all',
+                        maxWidth: '400px'
+                      }}
+                    >
+                      {report.target_url || 'N/A'}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>The API endpoint or URL that was scanned for vulnerabilities</TableCell>
                 </TableRow>
                 <TableRow>
                   <TableCell>
