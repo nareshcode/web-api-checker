@@ -124,6 +124,14 @@ interface VulnerabilityDetailProps {
   onClose: () => void;
 }
 
+interface BlockedRequest {
+  payload: string;
+  layer_type: string;
+  block_reason: string;
+  confidence: number;
+  attack_type: string;
+}
+
 function CustomTabPanel(props: TabPanelProps) {
   const { children, value, index, ...other } = props;
 
@@ -1259,6 +1267,12 @@ const ReportDetail: React.FC = () => {
               iconPosition="start"
               sx={{ minHeight: 64 }}
             />
+            <Tab 
+              label="WAF Blocked Requests" 
+              icon={<ShieldIcon />} 
+              iconPosition="start"
+              sx={{ minHeight: 64 }}
+            />
           </Tabs>
         </Box>
 
@@ -1857,6 +1871,179 @@ const ReportDetail: React.FC = () => {
               </TableContainer>
             </AccordionDetails>
           </Accordion>
+        </CustomTabPanel>
+
+        {/* WAF Blocked Requests Tab */}
+        <CustomTabPanel value={tabValue} index={3}>
+          <Typography variant="h5" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 4 }}>
+            <ShieldIcon color="primary" />
+            WAF Blocked Requests Analysis
+          </Typography>
+
+          {(() => {
+            const securityLayers = report?.findings?.api?.security_layers;
+            const blockedRequests: BlockedRequest[] = securityLayers?.blocked_requests || [];
+            const wafBlocked = blockedRequests.filter((req: BlockedRequest) => req.layer_type === 'waf');
+            
+            if (!securityLayers?.waf_detected) {
+              return (
+                <Alert severity="info" sx={{ mb: 3 }}>
+                  <Typography variant="h6" gutterBottom>No WAF Protection Detected</Typography>
+                  <Typography>
+                    No Web Application Firewall (WAF) was detected during the security scan. 
+                    Consider implementing WAF protection to block malicious requests before they reach your application.
+                  </Typography>
+                </Alert>
+              );
+            }
+
+            if (wafBlocked.length === 0) {
+              return (
+                <Alert severity="warning" sx={{ mb: 3 }}>
+                  <Typography variant="h6" gutterBottom>WAF Detected but No Blocks Recorded</Typography>
+                  <Typography>
+                    A WAF was detected but no blocked requests were recorded during this scan. 
+                    This could mean the WAF is configured very permissively or the scan didn't trigger any blocking rules.
+                  </Typography>
+                </Alert>
+              );
+            }
+
+            // Group blocked requests by attack type
+            const groupedBlocks = wafBlocked.reduce((acc: Record<string, BlockedRequest[]>, block: BlockedRequest) => {
+              const attackType = block.attack_type || 'unknown';
+              if (!acc[attackType]) {
+                acc[attackType] = [];
+              }
+              acc[attackType].push(block);
+              return acc;
+            }, {} as Record<string, BlockedRequest[]>);
+
+            return (
+              <>
+                {/* Summary Card */}
+                <Paper elevation={3} sx={{ p: 3, mb: 4, borderRadius: 2, background: 'linear-gradient(135deg, #4CAF50 0%, #45a049 100%)', color: 'white' }}>
+                  <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    🛡️ WAF Protection Summary
+                  </Typography>
+                  <Grid container spacing={3}>
+                    <Grid item xs={12} md={4}>
+                      <Box sx={{ textAlign: 'center' }}>
+                        <Typography variant="h3" sx={{ fontWeight: 'bold' }}>{wafBlocked.length}</Typography>
+                        <Typography variant="subtitle1">Total Blocked</Typography>
+                      </Box>
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                      <Box sx={{ textAlign: 'center' }}>
+                        <Typography variant="h3" sx={{ fontWeight: 'bold' }}>{Object.keys(groupedBlocks).length}</Typography>
+                        <Typography variant="subtitle1">Attack Types</Typography>
+                      </Box>
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                      <Box sx={{ textAlign: 'center' }}>
+                        <Typography variant="h3" sx={{ fontWeight: 'bold' }}>
+                          {Math.round((wafBlocked[0]?.confidence || 0) * 100)}%
+                        </Typography>
+                        <Typography variant="subtitle1">Confidence</Typography>
+                      </Box>
+                    </Grid>
+                  </Grid>
+                </Paper>
+
+                {/* Blocked Requests by Attack Type */}
+                {Object.entries(groupedBlocks).map(([attackType, blocks]: [string, BlockedRequest[]]) => (
+                  <Accordion key={attackType} defaultExpanded sx={{ mb: 2 }}>
+                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%' }}>
+                        <Typography variant="h6" sx={{ textTransform: 'capitalize' }}>
+                          {attackType.replace('_', ' ')} Attacks ({blocks.length} blocked)
+                        </Typography>
+                        <Chip 
+                          label={`${blocks.length} blocked`} 
+                          color="success" 
+                          size="small" 
+                        />
+                      </Box>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <TableContainer component={Paper} variant="outlined">
+                        <Table>
+                          <TableHead>
+                            <TableRow>
+                              <TableCell><strong>Payload</strong></TableCell>
+                              <TableCell><strong>Block Reason</strong></TableCell>
+                              <TableCell align="center"><strong>Confidence</strong></TableCell>
+                              <TableCell align="center"><strong>Layer Type</strong></TableCell>
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
+                            {blocks.map((block: BlockedRequest, index: number) => (
+                              <TableRow key={index} hover>
+                                <TableCell>
+                                  <Box sx={{ 
+                                    fontFamily: 'monospace', 
+                                    backgroundColor: '#f5f5f5', 
+                                    padding: '8px', 
+                                    borderRadius: '4px',
+                                    border: '1px solid #ddd',
+                                    wordBreak: 'break-all',
+                                    maxWidth: '400px'
+                                  }}>
+                                    {block.payload}
+                                  </Box>
+                                </TableCell>
+                                <TableCell>
+                                  <Typography variant="body2" color="text.secondary">
+                                    {block.block_reason}
+                                  </Typography>
+                                </TableCell>
+                                <TableCell align="center">
+                                  <Chip 
+                                    label={`${Math.round(block.confidence * 100)}%`}
+                                    color={block.confidence >= 0.8 ? 'success' : block.confidence >= 0.6 ? 'warning' : 'default'}
+                                    size="small"
+                                  />
+                                </TableCell>
+                                <TableCell align="center">
+                                  <Chip 
+                                    label={block.layer_type.toUpperCase()}
+                                    color="primary"
+                                    size="small"
+                                  />
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
+                    </AccordionDetails>
+                  </Accordion>
+                ))}
+
+                {/* Additional WAF Information */}
+                <Paper elevation={1} sx={{ p: 3, mt: 3, borderRadius: 2 }}>
+                  <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <InfoIcon color="primary" />
+                    WAF Analysis Details
+                  </Typography>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} md={6}>
+                      <Typography variant="subtitle2" gutterBottom>Detection Method:</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Connection failures and response patterns analysis
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <Typography variant="subtitle2" gutterBottom>Security Benefit:</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Preventing {wafBlocked.length} potential attack attempts from reaching your application
+                      </Typography>
+                    </Grid>
+                  </Grid>
+                </Paper>
+              </>
+            );
+          })()}
         </CustomTabPanel>
       </Paper>
 
