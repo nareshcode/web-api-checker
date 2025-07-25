@@ -9,6 +9,11 @@ import os
 import json
 from datetime import datetime
 import openai
+from dotenv import load_dotenv
+
+# Load environment variables from .env file in project root
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../'))
+load_dotenv(os.path.join(project_root, '.env'))
 
 # Add the parent directory to sys.path to import from the existing scanner
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
@@ -370,7 +375,7 @@ def generate_recommendations():
         issues = metrics.get('issues', {})
         
         # Set OpenAI API key
-        openai.api_key = os.getenv('') #Replace with our OpenAI API key + DONT PUSH AS IT IS PUBLIC REPO
+        openai.api_key = os.getenv('OPENAI_API_KEY')
         if not openai.api_key:
             return jsonify({'error': 'OpenAI API key not configured'}), 500
         
