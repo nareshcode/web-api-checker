@@ -109,28 +109,7 @@ interface SecurityMetrics {
   };
 }
 
-interface SecurityLayer {
-  type: string;
-  confidence: number;
-  blockReason: string;
-  partialProtection?: boolean;
-  blockRate?: string;
-}
 
-interface SecurityLayerInfo {
-  totalBlocked: number;
-  layerTypes: string[];
-  attackTypes: string[];
-  wafDetected: boolean;
-  rateLimitDetected: boolean;
-  authBlocksDetected: boolean;
-  captchaDetected: boolean;
-  challengeDetected: boolean;
-  ddosProtected: boolean;
-  ipFilteringDetected: boolean;
-  geoBlockingDetected: boolean;
-  securityLayers: SecurityLayer[];
-}
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -586,28 +565,7 @@ const ReportDetail: React.FC = () => {
     return { critical, high, medium, low, total, score, riskLevel, riskColor, issues };
   };
 
-  // Get detailed security layer information
-  const getSecurityLayerInfo = (): SecurityLayerInfo | null => {
-    if (!report?.findings?.api?.security_layers) return null;
-    
-    const securityLayers = report.findings.api.security_layers;
-    const blockedRequests = securityLayers.blocked_requests || [];
-    
-    return {
-      totalBlocked: blockedRequests.length,
-      layerTypes: Array.from(new Set(blockedRequests.map((block: any) => block.layer_type))),
-      attackTypes: Array.from(new Set(blockedRequests.map((block: any) => block.attack_type || 'unknown'))),
-      wafDetected: securityLayers.waf_detected || false,
-      rateLimitDetected: securityLayers.rate_limiting_detected || false,
-      authBlocksDetected: securityLayers.auth_blocks_detected || false,
-      captchaDetected: securityLayers.captcha_detected || false,
-      challengeDetected: securityLayers.challenge_detected || false,
-      ddosProtected: securityLayers.ddos_protection || false,
-      ipFilteringDetected: securityLayers.ip_filtering || false,
-      geoBlockingDetected: securityLayers.geo_blocking || false,
-      securityLayers: securityLayers.security_layers || []
-    };
-  };
+
 
   // Get vulnerability breakdown by category using actual report generator categories
   const getVulnerabilityBreakdown = () => {
@@ -671,7 +629,6 @@ const ReportDetail: React.FC = () => {
   };
 
   const metrics = getSecurityMetrics();
-  const securityLayerInfo = getSecurityLayerInfo();
   const vulnerabilityBreakdown = getVulnerabilityBreakdown();
 
   // Function to fetch AI recommendations
@@ -1024,18 +981,13 @@ const ReportDetail: React.FC = () => {
             <Card elevation={2} sx={{ bgcolor: 'rgba(255,255,255,0.15)', color: 'white', border: '1px solid rgba(255,255,255,0.3)' }}>
               <CardContent sx={{ textAlign: 'center', p: isMobile ? 2 : 3 }}>
                 <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-                  <ShieldIcon sx={{ fontSize: 40, opacity: 0.9 }} />
+                  <CheckIcon sx={{ fontSize: 40, opacity: 0.9 }} />
                   <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-                    {securityLayerInfo ? 'Protected' : 'Basic'}
+                    Complete
                   </Typography>
                   <Typography variant="body2" sx={{ opacity: 0.9 }}>
-                    Security Layer Status
+                    Scan Status
                   </Typography>
-                  {securityLayerInfo && (
-                    <Typography variant="caption" sx={{ opacity: 0.8 }}>
-                      {securityLayerInfo.totalBlocked} attacks blocked
-                    </Typography>
-                  )}
                 </Box>
               </CardContent>
             </Card>
@@ -1290,12 +1242,6 @@ const ReportDetail: React.FC = () => {
             scrollButtons="auto"
           >
             <Tab 
-              label="Security Layers" 
-              icon={<ShieldIcon />} 
-              iconPosition="start"
-              sx={{ minHeight: 64 }}
-            />
-            <Tab 
               label="Scan Metadata" 
               icon={<InfoIcon />} 
               iconPosition="start"
@@ -1316,271 +1262,8 @@ const ReportDetail: React.FC = () => {
           </Tabs>
         </Box>
 
-        {/* Security Layers Tab */}
-        <CustomTabPanel value={tabValue} index={0}>
-          {securityLayerInfo ? (
-            <Box>
-              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                <ShieldIcon color="primary" />
-                Security Layer Protection Analysis
-              </Typography>
-              
-              <Alert severity="info" sx={{ mb: 3 }}>
-                <Typography variant="subtitle2" gutterBottom>
-                  💡 Understanding Security Layers
-                </Typography>
-                <Typography variant="body2">
-                  Security layers are protective barriers that filter and block malicious requests before they reach your API. 
-                  Multiple layers provide defense-in-depth protection. Click "View Attack Details" to see what attacks were blocked.
-                </Typography>
-              </Alert>
-              
-              <TableContainer sx={{ mb: 3 }}>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell><strong>Protection Type</strong></TableCell>
-                      <TableCell align="center"><strong>Status</strong></TableCell>
-                      <TableCell align="center"><strong>What It Does</strong></TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    <TableRow>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <ShieldIcon fontSize="small" color="primary" />
-                          Web Application Firewall (WAF)
-                        </Box>
-                      </TableCell>
-                      <TableCell align="center">
-                        <Chip 
-                          label={securityLayerInfo.wafDetected ? 'Active' : 'Not Detected'} 
-                          color={securityLayerInfo.wafDetected ? 'success' : 'error'} 
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell align="center">
-                        <Typography variant="body2">
-                          {securityLayerInfo.wafDetected ? 
-                            'Blocks SQL injection, XSS, and other web attacks' : 
-                            'No firewall protection - vulnerable to common attacks'
-                          }
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <SpeedIcon fontSize="small" color="primary" />
-                          Rate Limiting
-                        </Box>
-                      </TableCell>
-                      <TableCell align="center">
-                        <Chip 
-                          label={securityLayerInfo.rateLimitDetected ? 'Active' : 'Not Detected'} 
-                          color={securityLayerInfo.rateLimitDetected ? 'success' : 'warning'} 
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell align="center">
-                        <Typography variant="body2">
-                          {securityLayerInfo.rateLimitDetected ? 
-                            'Prevents brute force and DoS attacks by limiting requests' : 
-                            'No rate limiting - vulnerable to abuse and flooding'
-                          }
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <VpnIcon fontSize="small" color="primary" />
-                          Authentication Blocks
-                        </Box>
-                      </TableCell>
-                      <TableCell align="center">
-                        <Chip 
-                          label={securityLayerInfo.authBlocksDetected ? 'Active' : 'Not Detected'} 
-                          color={securityLayerInfo.authBlocksDetected ? 'success' : 'warning'} 
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell align="center">
-                        <Typography variant="body2">
-                          {securityLayerInfo.authBlocksDetected ? 
-                            'Blocks unauthorized access attempts and credential attacks' : 
-                            'No auth protection - may allow unauthorized access'
-                          }
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <SecurityIcon fontSize="small" color="primary" />
-                          CAPTCHA Protection
-                        </Box>
-                      </TableCell>
-                      <TableCell align="center">
-                        <Chip 
-                          label={securityLayerInfo.captchaDetected ? 'Active' : 'Not Detected'} 
-                          color={securityLayerInfo.captchaDetected ? 'success' : 'info'} 
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell align="center">
-                        <Typography variant="body2">
-                          {securityLayerInfo.captchaDetected ? 
-                            'Distinguishes humans from bots to prevent automated attacks' : 
-                            'No bot protection - vulnerable to automated abuse'
-                          }
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <WarningIcon fontSize="small" color="primary" />
-                          DDoS Protection
-                        </Box>
-                      </TableCell>
-                      <TableCell align="center">
-                        <Chip 
-                          label={securityLayerInfo.ddosProtected ? 'Active' : 'Not Detected'} 
-                          color={securityLayerInfo.ddosProtected ? 'success' : 'error'} 
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell align="center">
-                        <Typography variant="body2">
-                          {securityLayerInfo.ddosProtected ? 
-                            'Mitigates distributed denial of service attacks' : 
-                            'No DDoS protection - vulnerable to large-scale attacks'
-                          }
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <WebIcon fontSize="small" color="primary" />
-                          IP Filtering
-                        </Box>
-                      </TableCell>
-                      <TableCell align="center">
-                        <Chip 
-                          label={securityLayerInfo.ipFilteringDetected ? 'Active' : 'Not Detected'} 
-                          color={securityLayerInfo.ipFilteringDetected ? 'success' : 'info'} 
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell align="center">
-                        <Typography variant="body2">
-                          {securityLayerInfo.ipFilteringDetected ? 
-                            'Blocks traffic from known malicious IP addresses' : 
-                            'No IP filtering - allows traffic from any source'
-                          }
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                    <TableRow>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <BankIcon fontSize="small" color="primary" />
-                          Geo-blocking
-                        </Box>
-                      </TableCell>
-                      <TableCell align="center">
-                        <Chip 
-                          label={securityLayerInfo.geoBlockingDetected ? 'Active' : 'Not Detected'} 
-                          color={securityLayerInfo.geoBlockingDetected ? 'success' : 'info'} 
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell align="center">
-                        <Typography variant="body2">
-                          {securityLayerInfo.geoBlockingDetected ? 
-                            'Restricts access based on geographical location' : 
-                            'No geo-restrictions - allows global access'
-                          }
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </TableContainer>
-
-              <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
-                <Button
-                  variant="contained"
-                  startIcon={<AssessmentIcon />}
-                  onClick={() => setExpandedSection(expandedSection === 'attackDetails' ? false : 'attackDetails')}
-                  sx={{ minWidth: 200 }}
-                >
-                  {expandedSection === 'attackDetails' ? 'Hide' : 'View'} Attack Details
-                </Button>
-              </Box>
-
-              <Collapse in={expandedSection === 'attackDetails'}>
-                <Paper elevation={1} sx={{ p: 3, bgcolor: 'grey.50', mb: 3 }}>
-                  <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <SecurityIcon color="error" />
-                    🛡️ Security Layer Analysis - Attack Block Details
-                  </Typography>
-                  <Typography variant="subtitle2" gutterBottom>
-                    🎯 Attacks Blocked by Security Layers:
-                  </Typography>
-                  
-                  {securityLayerInfo.wafDetected && (
-                    <Box sx={{ mb: 2 }}>
-                      <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-                        🛡️ WAF Protection (90% confidence)
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        SQL Injection Attacks Blocked: {securityLayerInfo.totalBlocked} attempts detected and mitigated
-                      </Typography>
-                    </Box>
-                  )}
-                  
-                  <Grid container spacing={2}>
-                    <Grid item xs={6} sm={3}>
-                      <Card variant="outlined" sx={{ p: 2, textAlign: 'center' }}>
-                        <Typography variant="h4" color="error">{securityLayerInfo.totalBlocked}</Typography>
-                        <Typography variant="body2" color="text.secondary">Total Blocked</Typography>
-                      </Card>
-                    </Grid>
-                    <Grid item xs={6} sm={3}>
-                      <Card variant="outlined" sx={{ p: 2, textAlign: 'center' }}>
-                        <Typography variant="h4" color="primary">{securityLayerInfo.layerTypes.length}</Typography>
-                        <Typography variant="body2" color="text.secondary">Layer Types</Typography>
-                      </Card>
-                    </Grid>
-                    <Grid item xs={6} sm={3}>
-                      <Card variant="outlined" sx={{ p: 2, textAlign: 'center' }}>
-                        <Typography variant="h4" color="warning">{securityLayerInfo.attackTypes.length}</Typography>
-                        <Typography variant="body2" color="text.secondary">Attack Types</Typography>
-                      </Card>
-                    </Grid>
-                    <Grid item xs={6} sm={3}>
-                      <Card variant="outlined" sx={{ p: 2, textAlign: 'center' }}>
-                        <Typography variant="h4" color="success">{securityLayerInfo.securityLayers.length}</Typography>
-                        <Typography variant="body2" color="text.secondary">Active Layers</Typography>
-                      </Card>
-                    </Grid>
-                  </Grid>
-                </Paper>
-              </Collapse>
-            </Box>
-          ) : (
-            <Alert severity="info">
-              <Typography variant="h6">No Security Layer Information</Typography>
-              <Typography>No security layer protection data was collected during this scan.</Typography>
-            </Alert>
-          )}
-        </CustomTabPanel>
-
         {/* Scan Metadata Tab */}
-        <CustomTabPanel value={tabValue} index={1}>
+        <CustomTabPanel value={tabValue} index={0}>
           <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <InfoIcon color="primary" />
             Scan Execution Details
@@ -1710,7 +1393,7 @@ const ReportDetail: React.FC = () => {
         </CustomTabPanel>
 
         {/* Detailed Report Tab */}
-        <CustomTabPanel value={tabValue} index={2}>
+        <CustomTabPanel value={tabValue} index={1}>
           <Typography variant="h5" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 4 }}>
             <AssessmentIcon color="primary" />
             Interactive Security Analysis Dashboard
@@ -2066,7 +1749,7 @@ const ReportDetail: React.FC = () => {
         </CustomTabPanel>
 
         {/* Technical Details Tab */}
-        <CustomTabPanel value={tabValue} index={3}>
+        <CustomTabPanel value={tabValue} index={2}>
           <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <CodeIcon color="primary" />
             Technical Scan Implementation Details

